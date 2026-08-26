@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: shopkart-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: salessavvy
+      MYSQL_ROOT_PASSWORD: Silu@2026#
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pSilu@2026#"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: ShopKart/Dockerfile
+    container_name: shopkart-app
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PORT=9090
+      - DB_URL=jdbc:mysql://db:3306/salessavvy?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - DB_USERNAME=root
+      - DB_PASSWORD=Silu@2026#
+      - JWT_SECRET=your-very-long-secure-secret-key-for-production-12345678901234567890
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Xms256m
+      - RAZORPAY_KEY_ID=rzp_test_LqWBBDbgwot5lh
+      - RAZORPAY_KEY_SECRET=NETk6HP1NzRzufOYZ7KYfDMb
+      - GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+
+volumes:
+  mysql_data:
