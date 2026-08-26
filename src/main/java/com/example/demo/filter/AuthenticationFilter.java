@@ -30,8 +30,12 @@ public class AuthenticationFilter extends OncePerRequestFilter {
     private static final String[] UNAUTHENTICATED_PATHS = {
         "/api/users/register",
         "/api/auth/login",
+        "/api/auth/google",
         "/admin",
-        "/"
+        "/",
+        "/index.html",
+        "/favicon.svg",
+        "/favicon.ico"
     };
 
     public AuthenticationFilter(AuthService authService, UserRepository userRepository) {
@@ -105,7 +109,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
         if (!"GET".equalsIgnoreCase(request.getMethod())) {
             return false;
         }
-        return "/api/products".equals(requestURI) || requestURI.startsWith("/api/products/suggestions") || "/api/products/categories".equals(requestURI);
+        return "/api/products".equals(requestURI) || requestURI.startsWith("/api/products/suggestions") || "/api/products/categories".equals(requestURI) || requestURI.startsWith("/api/reviews/product/");
     }
 
     private void attachUserIfPresent(HttpServletRequest request) {
@@ -132,7 +136,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean isUnauthenticatedPath(String requestURI) {
-        return Arrays.asList(UNAUTHENTICATED_PATHS).contains(requestURI) || requestURI.startsWith("/error");
+        return Arrays.asList(UNAUTHENTICATED_PATHS).contains(requestURI) || requestURI.startsWith("/error") || requestURI.startsWith("/assets/");
     }
 
     private void sendErrorResponse(HttpServletResponse response, int statusCode, String message) throws IOException {

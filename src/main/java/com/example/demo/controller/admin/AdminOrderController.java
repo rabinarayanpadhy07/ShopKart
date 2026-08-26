@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5174", allowCredentials = "true")
+@CrossOrigin(origins = "${spring.web.cors.allowed-origins:http://localhost:5174}", allowCredentials = "true")
 @RequestMapping("/admin/orders")
 public class AdminOrderController {
 
@@ -71,8 +71,9 @@ public class AdminOrderController {
 
         try {
             OrderStatus newStatus = OrderStatus.valueOf(statusStr.toUpperCase());
-            Order updatedOrder = orderService.updateOrderStatus(orderId, newStatus, adminUser.getUsername(), comments);
-            return ResponseEntity.ok(updatedOrder);
+            orderService.updateOrderStatus(orderId, newStatus, adminUser.getUsername(), comments);
+            Map<String, Object> updatedOrderDetailed = orderService.getOrderDetailed(orderId);
+            return ResponseEntity.ok(updatedOrderDetailed);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid status value"));
         } catch (Exception e) {

@@ -21,6 +21,20 @@ public class ShopkartApplication {
 	}
 
 	@Bean
+	public CommandLineRunner dbPatch(org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
+		return args -> {
+			try {
+				jdbcTemplate.execute("ALTER TABLE orders MODIFY COLUMN status VARCHAR(50)");
+				jdbcTemplate.execute("ALTER TABLE order_status_history MODIFY COLUMN previous_status VARCHAR(50)");
+				jdbcTemplate.execute("ALTER TABLE order_status_history MODIFY COLUMN new_status VARCHAR(50)");
+				System.out.println("Database patch: Altered status columns to VARCHAR(50) successfully.");
+			} catch (Exception e) {
+				System.err.println("Database patch error: " + e.getMessage());
+			}
+		};
+	}
+
+	@Bean
 	public CommandLineRunner demo(CategoryRepository categoryRepository, ProductRepository productRepository) {
 		return args -> {
 			List<String> categoriesToSeed = Arrays.asList(

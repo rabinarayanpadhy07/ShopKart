@@ -53,6 +53,25 @@ public class AdminProductController {
         }
     }
 
+    @PutMapping("/modify/{productId}")
+    public ResponseEntity<?> modifyProduct(@PathVariable("productId") Integer productId, @RequestBody Map<String, Object> productRequest) {
+        try {
+            String name = (String) productRequest.get("name");
+            String description = (String) productRequest.get("description");
+            Double price = productRequest.get("price") != null ? Double.valueOf(String.valueOf(productRequest.get("price"))) : null;
+            Integer stock = (Integer) productRequest.get("stock");
+            Integer categoryId = (Integer) productRequest.get("categoryId");
+            String imageUrl = (String) productRequest.get("imageUrl");
+
+            Product modified = adminProductService.modifyProduct(productId, name, description, price, stock, categoryId, imageUrl);
+            return ResponseEntity.status(HttpStatus.OK).body(modified);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Something went wrong"));
+        }
+    }
+
     @PostMapping("/categories/add")
     public ResponseEntity<?> addCategory(HttpServletRequest request, @RequestBody Map<String, String> payload) {
         User adminUser = (User) request.getAttribute("authenticatedUser");

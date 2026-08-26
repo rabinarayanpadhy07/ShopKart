@@ -14,7 +14,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
     List<OrderItem> findByOrderId(String orderId);
     
     
-    @Query("SELECT oi FROM OrderItem oi WHERE oi.order.userId = :userId AND oi.order.status NOT IN (com.example.demo.entity.OrderStatus.PENDING, com.example.demo.entity.OrderStatus.FAILED)")
+    @Query("SELECT oi FROM OrderItem oi WHERE oi.order.userId = :userId AND oi.order.status != com.example.demo.entity.OrderStatus.FAILED")
     List<OrderItem> findSuccessfulOrderItemsByUserId(int userId);
 
     @Query("SELECT COUNT(oi) > 0 FROM OrderItem oi WHERE oi.order.userId = :userId AND oi.order.status = com.example.demo.entity.OrderStatus.DELIVERED AND oi.productId = :productId")

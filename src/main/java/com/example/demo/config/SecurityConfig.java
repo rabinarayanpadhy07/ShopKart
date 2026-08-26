@@ -14,6 +14,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.beans.factory.annotation.Value;
 import java.util.Arrays;
 import java.util.List;
 
@@ -35,9 +36,10 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/users/register", "/admin", "/").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/suggestions", "/api/products/categories").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/google", "/api/users/register", "/admin", "/", "/index.html", "/assets/**", "/favicon.svg", "/favicon.ico").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/suggestions", "/api/products/categories", "/api/reviews/product/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/users/me").authenticated()
                 .requestMatchers("/api/auth/logout").authenticated()
                 .requestMatchers("/api/**").hasRole("CUSTOMER")
                 .anyRequest().authenticated()
@@ -47,10 +49,14 @@ public class SecurityConfig {
         return http.build();
     }
 
+    @Value("${spring.web.cors.allowed-origins:http://localhost:5174}")
+    private String allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5174"));
+        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization"));
         configuration.setAllowCredentials(true);

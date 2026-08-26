@@ -36,5 +36,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
 	    @Query("SELECT o FROM Order o WHERE o.status = :status")
 	    List<Order> findAllByStatus(OrderStatus status);
+
+	 @Query("SELECT o FROM Order o WHERE o.status NOT IN (com.example.demo.entity.OrderStatus.PENDING, com.example.demo.entity.OrderStatus.FAILED, com.example.demo.entity.OrderStatus.CANCELLED, com.example.demo.entity.OrderStatus.RETURNED, com.example.demo.entity.OrderStatus.REFUNDED)")
+	    List<Order> findSuccessfulOrders();
 	 
 }

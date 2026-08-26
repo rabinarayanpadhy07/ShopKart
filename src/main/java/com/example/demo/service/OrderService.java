@@ -34,6 +34,7 @@ public class OrderService {
     /**
      * Fetches all successful orders for a given user and returns the required response format.
      */
+    @Transactional(readOnly = true)
     public Map<String, Object> getOrdersForUser(User user) {
         // Fetch all successful order items for the user (non-failed, non-pending)
         List<OrderItem> orderItems = orderItemRepository.findSuccessfulOrderItemsByUserId(user.getUserId());
@@ -232,6 +233,10 @@ public class OrderService {
             return order;
         }
 
+        String auditComments = (comments == null || comments.trim().isEmpty())
+                ? "Status transitioned to " + newStatus.name()
+                : comments;
+
         // Validate state transition transitions rules
         validateTransition(previous, newStatus);
 
@@ -266,7 +271,7 @@ public class OrderService {
         orderRepository.save(order);
 
         // Save status history audit log
-        OrderStatusHistory history = new OrderStatusHistory(order, previous, newStatus, changedBy, comments);
+        OrderStatusHistory history = new OrderStatusHistory(order, previous, newStatus, changedBy, auditComments);
         orderStatusHistoryRepository.save(history);
 
         return order;
@@ -287,6 +292,39 @@ public class OrderService {
                 throw new RuntimeException("Delivered orders can only transition to return or refund statuses");
             }
         }
+    }
+
+    public Map<String, Object> getOrderDetailed(String orderId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return null;
+        }
+        Map<String, Object> map = new HashMap<>();
+        map.put("orderId", order.getOrderId());
+        map.put("userId", order.getUserId());
+        map.put("totalAmount", order.getTotalAmount());
+        map.put("status", order.getStatus().name());
+        map.put("createdAt", order.getCreatedAt().toString());
+        map.put("formattedAddress", order.getFormattedAddress());
+        map.put("cancellationReason", order.getCancellationReason());
+        map.put("returnReason", order.getReturnReason());
+        
+        List<OrderItem> items = orderItemRepository.findByOrderId(order.getOrderId());
+        List<Map<String, Object>> itemMaps = new ArrayList<>();
+        for (OrderItem item : items) {
+            Map<String, Object> itemMap = new HashMap<>();
+            itemMap.put("productId", item.getProductId());
+            itemMap.put("quantity", item.getQuantity());
+            itemMap.put("pricePerUnit", item.getPricePerUnit());
+            itemMap.put("totalPrice", item.getTotalPrice());
+            
+            Product p = productRepository.findById(item.getProductId()).orElse(null);
+            itemMap.put("productName", p != null ? p.getName() : "Unknown Product");
+            
+            itemMaps.add(itemMap);
+        }
+        map.put("items", itemMaps);
+        return map;
     }
 
     public List<OrderStatusHistory> getStatusHistory(String orderId) {

@@ -78,6 +78,9 @@ public class ProductService {
     }
 
     public java.util.Map<Integer, List<String>> getProductImagesForProducts(List<Integer> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
         List<ProductImage> productImages = productImageRepository.findByProduct_ProductIdIn(productIds);
         java.util.Map<Integer, List<String>> imagesMap = new java.util.HashMap<>();
         for (ProductImage image : productImages) {

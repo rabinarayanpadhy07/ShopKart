@@ -21,7 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5174", allowCredentials = "true")
+@CrossOrigin(origins = "${spring.web.cors.allowed-origins:http://localhost:5174}", allowCredentials = "true")
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService authService;
@@ -81,6 +81,38 @@ public class AuthController {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Logout failed");
             return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> requestBody, HttpServletResponse response) {
+        try {
+            String idToken = requestBody.get("credential");
+            if (idToken == null || idToken.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Google ID token (credential) is required"));
+            }
+
+            User user = authService.authenticateGoogleUser(idToken);
+            String token = authService.generateToken(user);
+
+            ResponseCookie cookie = ResponseCookie.from("authToken", token)
+                    .httpOnly(true)
+                    .secure(false)
+                    .path("/")
+                    .maxAge(3600)
+                    .sameSite("Lax")
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("message", "Login successful");
+            responseBody.put("role", user.getRole().name());
+            responseBody.put("username", user.getUsername());
+
+            return ResponseEntity.ok(responseBody);
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
         }
     }
 }

@@ -7,12 +7,14 @@ import com.example.demo.repository.CategoryRepository;
 import com.example.demo.repository.ProductImageRepository;
 import com.example.demo.repository.ProductRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
+@Transactional
 public class AdminProductService {
 
     private final ProductRepository productRepository;
@@ -68,6 +70,35 @@ public class AdminProductService {
 
         // Delete the product
         productRepository.deleteById(productId);
+    }
+
+    public Product modifyProduct(Integer productId, String name, String description, Double price, Integer stock, Integer categoryId, String imageUrl) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + productId));
+
+        if (categoryId != null) {
+            Category category = categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("Category not found with ID: " + categoryId));
+            product.setCategory(category);
+        }
+
+        if (name != null) product.setName(name);
+        if (description != null) product.setDescription(description);
+        if (price != null) product.setPrice(BigDecimal.valueOf(price));
+        if (stock != null) product.setStock(stock);
+        product.setUpdatedAt(LocalDateTime.now());
+
+        Product savedProduct = productRepository.save(product);
+
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            productImageRepository.deleteByProductId(productId);
+            ProductImage productImage = new ProductImage();
+            productImage.setProduct(savedProduct);
+            productImage.setImageUrl(imageUrl);
+            productImageRepository.save(productImage);
+        }
+
+        return savedProduct;
     }
 
     public Category addCategory(String categoryName) {

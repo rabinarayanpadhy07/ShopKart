@@ -51,6 +51,9 @@ public class AdminBusinessService {
 			for (OrderItem item : orderItems) {
 				// Fetch category name based on productId
 				String categoryName = productRepository.findCategoryNameByProductId(item.getProductId());
+				if (categoryName == null) {
+					categoryName = "Uncategorized / Deleted Product";
+				}
 				categorySales.put(categoryName, categorySales.getOrDefault(categoryName, 0) + item.getQuantity());
 			}
 		}
@@ -85,6 +88,9 @@ public class AdminBusinessService {
 			for (OrderItem item : orderItems) {
 				// Fetch category name based on productId
 				String categoryName = productRepository.findCategoryNameByProductId(item.getProductId());
+				if (categoryName == null) {
+					categoryName = "Uncategorized / Deleted Product";
+				}
 				categorySales.put(categoryName, categorySales.getOrDefault(categoryName, 0) + item.getQuantity());
 			}
 		}
@@ -120,6 +126,9 @@ public class AdminBusinessService {
             for (OrderItem item : orderItems) {
                 // Fetch category name based on productId
                 String categoryName = productRepository.findCategoryNameByProductId(item.getProductId());
+                if (categoryName == null) {
+                    categoryName = "Uncategorized / Deleted Product";
+                }
                 categorySales.put(categoryName, categorySales.getOrDefault(categoryName, 0) + item.getQuantity());
             }
         }
@@ -136,13 +145,19 @@ public class AdminBusinessService {
 	
 	public Map<String, Object> calculateOverallBusiness() {
 	    BigDecimal totalBusinessAmount = orderRepository.calculateOverallBusiness();
-	    List<Order> successfulOrders = orderRepository.findAllByStatus(OrderStatus.SUCCESS);
+	    if (totalBusinessAmount == null) {
+	        totalBusinessAmount = BigDecimal.ZERO;
+	    }
+	    List<Order> successfulOrders = orderRepository.findSuccessfulOrders();
 
 	    Map<String, Integer> categorySales = new HashMap<>();
 	    for (Order order : successfulOrders) {
 	        List<OrderItem> orderItems = orderItemRepository.findByOrderId(order.getOrderId());
 	        for (OrderItem item : orderItems) {
 	            String categoryName = productRepository.findCategoryNameByProductId(item.getProductId());
+	            if (categoryName == null) {
+	                categoryName = "Uncategorized / Deleted Product";
+	            }
 	            categorySales.put(categoryName, categorySales.getOrDefault(categoryName, 0) + item.getQuantity());
 	        }
 	    }

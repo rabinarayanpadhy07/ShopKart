@@ -20,6 +20,10 @@ import io.jsonwebtoken.security.Keys;
 
 import java.security.Key;
 import java.nio.charset.StandardCharsets;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.ResponseEntity;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -29,6 +33,9 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JWTTokenRepository jwtTokenRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+
+    @Value("${google.client.id:}")
+    private String googleClientId;
 
     // Injecting jwt.secret from properties file
     @Autowired
@@ -123,5 +130,59 @@ public class AuthService {
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
+    }
+
+    public User authenticateGoogleUser(String idToken) {
+        RestTemplate restTemplate = new RestTemplate();
+        String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
+        try {
+            ResponseEntity<Map> responseEntity = restTemplate.getForEntity(url, Map.class);
+            if (!responseEntity.getStatusCode().is2xxSuccessful() || responseEntity.getBody() == null) {
+                throw new RuntimeException("Failed to verify Google token");
+            }
+            Map<String, Object> body = responseEntity.getBody();
+
+            // Validate audience
+            String aud = (String) body.get("aud");
+            if (googleClientId != null && !googleClientId.trim().isEmpty() && !googleClientId.equals("your-google-client-id.apps.googleusercontent.com")) {
+                if (!googleClientId.equals(aud)) {
+                    throw new RuntimeException("Google token audience mismatch");
+                }
+            }
+
+            String email = (String) body.get("email");
+            if (email == null) {
+                throw new RuntimeException("Email not found in Google token");
+            }
+
+            // Find or create user
+            Optional<User> existingUserOpt = userRepository.findByEmail(email);
+            if (existingUserOpt.isPresent()) {
+                return existingUserOpt.get();
+            }
+
+            // Check if username based on email is available
+            String baseUsername = email.split("@")[0];
+            String username = baseUsername;
+            int counter = 1;
+            while (userRepository.findByUsername(username).isPresent()) {
+                username = baseUsername + counter;
+                counter++;
+            }
+
+            // Create new user
+            User user = new User();
+            user.setEmail(email);
+            user.setUsername(username);
+            user.setRole(com.example.demo.entity.Role.CUSTOMER);
+            user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+            user.setCreatedAt(LocalDateTime.now());
+            user.setUpdatedAt(LocalDateTime.now());
+
+            return userRepository.save(user);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Google authentication failed: " + e.getMessage());
+        }
     }
 }

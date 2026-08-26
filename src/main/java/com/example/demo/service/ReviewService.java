@@ -112,8 +112,8 @@ public class ReviewService {
     private void updateProductRatingStats(Product product) {
         Double avgRating = reviewRepository.getAverageRatingForProduct(product.getProductId());
         Integer count = reviewRepository.getReviewCountForProduct(product.getProductId());
-        product.setAverageRating(avgRating);
-        product.setTotalReviews(count);
+        product.setAverageRating(avgRating != null ? avgRating : 0.0);
+        product.setTotalReviews(count != null ? count : 0);
         productRepository.save(product);
     }
 }
