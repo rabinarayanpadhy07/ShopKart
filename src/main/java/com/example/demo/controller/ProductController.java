@@ -16,11 +16,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @CrossOrigin(origins = "${spring.web.cors.allowed-origins:http://localhost:5174}", allowCredentials = "true")
 @RequestMapping("/api/products")
 public class ProductController {
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "productId", "name", "price", "stock", "brand", "averageRating", "totalReviews", "createdAt");
 
     @Autowired
     private ProductService productService;
@@ -41,6 +45,15 @@ public class ProductController {
             HttpServletRequest request) {
         try {
             User authenticatedUser = (User) request.getAttribute("authenticatedUser");
+            if (page < 0) {
+                throw new RuntimeException("Page cannot be negative");
+            }
+            if (size < 1 || size > 100) {
+                throw new RuntimeException("Page size must be between 1 and 100");
+            }
+            if (!ALLOWED_SORT_FIELDS.contains(sortBy)) {
+                throw new RuntimeException("Unsupported sort field");
+            }
 
             Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
             PageRequest pageable = PageRequest.of(page, size, sort);

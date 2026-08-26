@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
+import com.example.demo.dto.UserDTO;
 
 @RestController
 @RequestMapping("/admin/users")
@@ -65,7 +66,7 @@ public class AdminUserController {
     public ResponseEntity<?> getUserById(@PathVariable("userId") Integer userId) {
     	 try {
              User user = adminUserService.getUserById(userId);
-             return ResponseEntity.status(HttpStatus.OK).body(user);
+             return ResponseEntity.status(HttpStatus.OK).body(new UserDTO(user));
          } catch (IllegalArgumentException e) {
              return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
          } catch (Exception e) {

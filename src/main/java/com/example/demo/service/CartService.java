@@ -35,6 +35,9 @@ public class CartService {
 
 	// Add an item to the cart
 	public void addToCart(int userId, int productId, int quantity) {
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be greater than 0");
+		}
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
 
@@ -46,9 +49,12 @@ public class CartService {
 
 		if (existingItem.isPresent()) {
 			CartItem cartItem = existingItem.get();
-			cartItem.setQuantity(cartItem.getQuantity() + quantity);
+			int newQuantity = cartItem.getQuantity() + quantity;
+			validateAvailableStock(product, newQuantity);
+			cartItem.setQuantity(newQuantity);
 			cartRepository.save(cartItem);
 		} else {
+			validateAvailableStock(product, quantity);
 			CartItem newItem = new CartItem(user, product, quantity);
 			cartRepository.save(newItem);
 		}
@@ -69,7 +75,7 @@ public class CartService {
 
 		// List to hold the product details
 		List<Map<String, Object>> products = new ArrayList<>();
-		int overallTotalPrice = 0;
+		double overallTotalPrice = 0;
 
 		for (CartItem cartItem : cartItems) {
 			Map<String, Object> productDetails = new HashMap<>();
@@ -118,6 +124,9 @@ public class CartService {
 
 	// Update Cart Item Quantity
 	public void updateCartItemQuantity(int userId, int productId, int quantity) {
+		if (quantity < 0) {
+			throw new IllegalArgumentException("Quantity cannot be negative");
+		}
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalArgumentException("User not found"));
 
@@ -132,9 +141,16 @@ public class CartService {
 			if (quantity == 0) {
 				deleteCartItem(userId, productId);
 			} else {
+				validateAvailableStock(product, quantity);
 				cartItem.setQuantity(quantity);
 				cartRepository.save(cartItem);
 			}
+		}
+	}
+
+	private void validateAvailableStock(Product product, int quantity) {
+		if (quantity > product.getStock()) {
+			throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
 		}
 	}
 

@@ -10,6 +10,7 @@ import com.example.demo.repository.ProductImageRepository;
 import com.example.demo.repository.ProductRepository;
 import com.example.demo.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,21 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
 
+    @Value("${app.seed.demo-data:false}")
+    private boolean seedDemoData;
+
+    @Value("${app.seed.admin:false}")
+    private boolean seedAdmin;
+
+    @Value("${app.seed.admin.username:}")
+    private String seedAdminUsername;
+
+    @Value("${app.seed.admin.email:}")
+    private String seedAdminEmail;
+
+    @Value("${app.seed.admin.password:}")
+    private String seedAdminPassword;
+
     public DatabaseSeeder(CategoryRepository categoryRepository,
                           ProductRepository productRepository,
                           ProductImageRepository productImageRepository,
@@ -43,16 +59,16 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        // Seed Admin User
-        if (userRepository.findByEmail("rabi.narayan.padhy004@gmail.com").isEmpty()) {
-            User admin = new User();
-            admin.setUsername("rabinarayanpadhy");
-            admin.setEmail("rabi.narayan.padhy004@gmail.com");
-            admin.setPassword(passwordEncoder.encode("Silu@20226#"));
-            admin.setRole(Role.ADMIN);
-            admin.setCreatedAt(LocalDateTime.now());
-            admin.setUpdatedAt(LocalDateTime.now());
-            userRepository.save(admin);
+        if (!seedDemoData && !seedAdmin) {
+            return;
+        }
+
+        if (seedAdmin) {
+            createSeedAdmin();
+        }
+
+        if (!seedDemoData) {
+            return;
         }
 
         seedCategoryWithProducts("Shirts", List.of(
@@ -162,6 +178,26 @@ public class DatabaseSeeder implements CommandLineRunner {
                 "Assorted single-origin dark chocolate truffles with smooth melting cocoa centers.",
                 750.00, 110, "https://images.unsplash.com/photo-1548907040-4d42b5212c10?w=500")
         ));
+    }
+
+    private void createSeedAdmin() {
+        if (seedAdminUsername == null || seedAdminUsername.trim().isEmpty()
+                || seedAdminEmail == null || seedAdminEmail.trim().isEmpty()
+                || seedAdminPassword == null || seedAdminPassword.trim().isEmpty()) {
+            throw new IllegalStateException("Seed admin requires SEED_ADMIN_USERNAME, SEED_ADMIN_EMAIL, and SEED_ADMIN_PASSWORD.");
+        }
+        if (userRepository.findByEmail(seedAdminEmail).isPresent()) {
+            return;
+        }
+
+        User admin = new User();
+        admin.setUsername(seedAdminUsername.trim());
+        admin.setEmail(seedAdminEmail.trim());
+        admin.setPassword(passwordEncoder.encode(seedAdminPassword));
+        admin.setRole(Role.ADMIN);
+        admin.setCreatedAt(LocalDateTime.now());
+        admin.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(admin);
     }
 
     private void seedCategoryWithProducts(String categoryName, List<SeedProduct> seedProducts) {

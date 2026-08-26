@@ -1,6 +1,5 @@
 package com.example.demo.service;
 
-import com.example.demo.entity.CartItem;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
 import com.example.demo.entity.OrderStatus;
@@ -46,7 +45,7 @@ public class PaymentService {
     }
 
     @Transactional
-    public String createOrder(int userId, BigDecimal totalAmount, List<OrderItem> cartItems, Integer addressId, String formattedAddress) throws RazorpayException {
+    public String createOrder(int userId, BigDecimal totalAmount, List<OrderItem> orderItems, Integer addressId, String formattedAddress) throws RazorpayException {
         // Create Razorpay client
         RazorpayClient razorpayClient = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
 
@@ -70,64 +69,64 @@ public class PaymentService {
         order.setFormattedAddress(formattedAddress);
         orderRepository.save(order);
 
+        for (OrderItem item : orderItems) {
+            item.setOrder(order);
+            orderItemRepository.save(item);
+        }
+
         return razorpayOrder.get("id");
     }
 
     @Transactional(rollbackFor = Exception.class)
     public boolean verifyPayment(String razorpayOrderId, String razorpayPaymentId, String razorpaySignature, int userId) {
+        // Prepare signature validation attributes
+        JSONObject attributes = new JSONObject();
+        attributes.put("razorpay_order_id", razorpayOrderId);
+        attributes.put("razorpay_payment_id", razorpayPaymentId);
+        attributes.put("razorpay_signature", razorpaySignature);
+
+        boolean isSignatureValid;
         try {
-            // Prepare signature validation attributes
-            JSONObject attributes = new JSONObject();
-            attributes.put("razorpay_order_id", razorpayOrderId);
-            attributes.put("razorpay_payment_id", razorpayPaymentId);
-            attributes.put("razorpay_signature", razorpaySignature);
-
-            // Verify Razorpay signature
-            boolean isSignatureValid = com.razorpay.Utils.verifyPaymentSignature(attributes, razorpayKeySecret);
-
-            if (isSignatureValid) {
-                // Update order status to SUCCESS
-                Order order = orderRepository.findById(razorpayOrderId)
-                    .orElseThrow(() -> new RuntimeException("Order not found"));
-                order.setStatus(OrderStatus.SUCCESS);
-                order.setUpdatedAt(LocalDateTime.now());
-                orderRepository.save(order);
-
-                // Fetch cart items for the user
-                List<CartItem> cartItems = cartRepository.findCartItemsWithProductDetails(userId);
-
-                // Save order items and decrement product stock
-                for (CartItem cartItem : cartItems) {
-                    Product product = cartItem.getProduct();
-                    if (product.getStock() < cartItem.getQuantity()) {
-                        throw new RuntimeException("Stock is insufficient for product: " + product.getName());
-                    }
-
-                    // Decrement stock count
-                    product.setStock(product.getStock() - cartItem.getQuantity());
-                    productRepository.save(product);
-
-                    OrderItem orderItem = new OrderItem();
-                    orderItem.setOrder(order);
-                    orderItem.setProductId(product.getProductId());
-                    orderItem.setQuantity(cartItem.getQuantity());
-                    orderItem.setPricePerUnit(product.getPrice());
-                    orderItem.setTotalPrice(product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
-                    orderItemRepository.save(orderItem);
-                }
-
-                // Clear user's cart
-                cartRepository.deleteAllCartItemsByUserId(userId);
-
-                return true;
-            } 
-            else {
-                return false;
-            }
+            isSignatureValid = com.razorpay.Utils.verifyPaymentSignature(attributes, razorpayKeySecret);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException("Payment signature verification failed", e);
+        }
+
+        if (!isSignatureValid) {
             return false;
         }
+
+        Order order = orderRepository.findById(razorpayOrderId)
+            .orElseThrow(() -> new RuntimeException("Order not found"));
+        if (order.getUserId() != userId) {
+            throw new RuntimeException("Payment order does not belong to this user");
+        }
+        if (order.getStatus() == OrderStatus.SUCCESS) {
+            return true;
+        }
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new RuntimeException("Order is not payable in its current state: " + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.SUCCESS);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        List<OrderItem> orderItems = orderItemRepository.findByOrderId(razorpayOrderId);
+        for (OrderItem orderItem : orderItems) {
+            Product product = productRepository.findById(orderItem.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Product not found"));
+            if (product.getStock() < orderItem.getQuantity()) {
+                throw new RuntimeException("Stock is insufficient for product: " + product.getName());
+            }
+
+            product.setStock(product.getStock() - orderItem.getQuantity());
+            productRepository.save(product);
+        }
+
+        cartRepository.deleteAllCartItemsByUserId(userId);
+
+        return true;
     }
 
     @Transactional

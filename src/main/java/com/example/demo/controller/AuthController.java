@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpHeaders;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,6 +26,13 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService authService;
+
+    @Value("${app.security.cookie-secure:true}")
+    private boolean cookieSecure;
+
+    @Value("${app.security.cookie-same-site:None}")
+    private String cookieSameSite;
+
     public AuthController(AuthService authService) {
         this.authService = authService;
     }
@@ -37,10 +45,10 @@ public class AuthController {
 
             ResponseCookie cookie = ResponseCookie.from("authToken", token)
                     .httpOnly(true)
-                    .secure(false) // Set to true if using HTTPS in prod, false is okay for dev localhost
+                    .secure(cookieSecure)
                     .path("/")
                     .maxAge(3600)
-                    .sameSite("Lax")
+                    .sameSite(cookieSameSite)
                     .build();
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
             
@@ -67,10 +75,10 @@ public class AuthController {
             }
             ResponseCookie cookie = ResponseCookie.from("authToken", "")
                     .httpOnly(true)
-                    .secure(false)
+                    .secure(cookieSecure)
                     .path("/")
                     .maxAge(0)
-                    .sameSite("Lax")
+                    .sameSite(cookieSameSite)
                     .build();
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
             
@@ -97,10 +105,10 @@ public class AuthController {
 
             ResponseCookie cookie = ResponseCookie.from("authToken", token)
                     .httpOnly(true)
-                    .secure(false)
+                    .secure(cookieSecure)
                     .path("/")
                     .maxAge(3600)
-                    .sameSite("Lax")
+                    .sameSite(cookieSameSite)
                     .build();
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 

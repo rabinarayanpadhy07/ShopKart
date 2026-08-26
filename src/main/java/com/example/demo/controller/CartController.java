@@ -50,8 +50,8 @@ public class CartController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         
-        int productId = (int) requestBody.get("productId");
-        int quantity = requestBody.containsKey("quantity") ? (int) requestBody.get("quantity") : 1;
+        int productId = readPositiveInt(requestBody, "productId");
+        int quantity = requestBody.containsKey("quantity") ? readPositiveInt(requestBody, "quantity") : 1;
 
         cartService.addToCart(user.getUserId(), productId, quantity);
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -65,8 +65,8 @@ public class CartController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        int productId = (int) requestBody.get("productId");
-        int quantity = (int) requestBody.get("quantity");
+        int productId = readPositiveInt(requestBody, "productId");
+        int quantity = readNonNegativeInt(requestBody, "quantity");
 
         cartService.updateCartItemQuantity(user.getUserId(), productId, quantity);
         return ResponseEntity.status(HttpStatus.OK).build();
@@ -82,5 +82,37 @@ public class CartController {
 
         cartService.deleteCartItem(user.getUserId(), productId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+
+    private int readPositiveInt(Map<String, Object> requestBody, String field) {
+        int value = readInt(requestBody, field);
+        if (value <= 0) {
+            throw new IllegalArgumentException(field + " must be greater than 0");
+        }
+        return value;
+    }
+
+    private int readNonNegativeInt(Map<String, Object> requestBody, String field) {
+        int value = readInt(requestBody, field);
+        if (value < 0) {
+            throw new IllegalArgumentException(field + " cannot be negative");
+        }
+        return value;
+    }
+
+    private int readInt(Map<String, Object> requestBody, String field) {
+        Object raw = requestBody.get(field);
+        if (raw instanceof Number number) {
+            return number.intValue();
+        }
+        if (raw instanceof String text) {
+            return Integer.parseInt(text);
+        }
+        throw new IllegalArgumentException(field + " is required");
     }
 }

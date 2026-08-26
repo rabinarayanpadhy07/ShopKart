@@ -7,6 +7,7 @@ import com.example.demo.repository.ProductRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 
 import java.util.Arrays;
@@ -21,6 +22,7 @@ public class ShopkartApplication {
 	}
 
 	@Bean
+	@ConditionalOnProperty(name = "app.database.patch-enabled", havingValue = "true")
 	public CommandLineRunner dbPatch(org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
 		return args -> {
 			try {
@@ -35,6 +37,7 @@ public class ShopkartApplication {
 	}
 
 	@Bean
+	@ConditionalOnProperty(name = "app.seed.legacy-data", havingValue = "true")
 	public CommandLineRunner demo(CategoryRepository categoryRepository, ProductRepository productRepository) {
 		return args -> {
 			List<String> categoriesToSeed = Arrays.asList(

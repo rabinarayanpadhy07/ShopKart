@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -41,7 +43,7 @@ public class SecurityConfig {
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/users/me").authenticated()
                 .requestMatchers("/api/auth/logout").authenticated()
-                .requestMatchers("/api/**").hasRole("CUSTOMER")
+                .requestMatchers("/api/**").hasAnyRole("CUSTOMER", "ADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(new AuthenticationFilter(authService, userRepository), UsernamePasswordAuthenticationFilter.class);
@@ -49,7 +51,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Value("${spring.web.cors.allowed-origins:http://localhost:5174}")
+    @Value("${spring.web.cors.allowed-origins:http://localhost:5174,https://shopkartapp.vercel.app}")
     private String allowedOrigins;
 
     @Bean
@@ -64,5 +66,16 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return username -> userRepository.findByUsername(username)
+                .map(user -> org.springframework.security.core.userdetails.User
+                        .withUsername(user.getUsername())
+                        .password(user.getPassword())
+                        .roles(user.getRole().name())
+                        .build())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 }
