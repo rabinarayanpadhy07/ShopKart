@@ -56,7 +56,7 @@ public class ProductionConfigurationValidator {
             throw new IllegalStateException("JWT_SECRET must be replaced for production.");
         }
         if (!cookieSecure || !"None".equalsIgnoreCase(cookieSameSite)) {
-            throw new IllegalStateException("Cross-site production auth cookies must use Secure and SameSite=None.");
+            throw new IllegalStateException("Cross-site production auth cookies must use Secure and SameSite=None. Please set AUTH_COOKIE_SECURE=true and AUTH_COOKIE_SAME_SITE=None in your production environment variables.");
         }
         if ("update".equalsIgnoreCase(ddlAuto) || "create".equalsIgnoreCase(ddlAuto) || "create-drop".equalsIgnoreCase(ddlAuto)) {
             throw new IllegalStateException("DDL_AUTO must be validate or none in production.");
