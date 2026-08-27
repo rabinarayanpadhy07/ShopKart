@@ -20,7 +20,7 @@ public interface JWTTokenRepository extends JpaRepository<JWTToken, Integer> {
 
     // Custom query to find tokens by user ID
     @Query("SELECT t FROM JWTToken t WHERE t.user.userId = :userId")
-    JWTToken findByUserId(@Param("userId") int userId);
+    List<JWTToken> findByUserId(@Param("userId") int userId);
 
     // Custom query to delete tokens by user ID
     @Modifying

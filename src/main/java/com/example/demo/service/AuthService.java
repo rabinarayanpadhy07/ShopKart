@@ -3,6 +3,7 @@ package com.example.demo.service;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Optional;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -72,14 +73,31 @@ public class AuthService {
     public String generateToken(User user) {
         String token;
         LocalDateTime now = LocalDateTime.now();
-        JWTToken existingToken = jwtTokenRepository.findByUserId(user.getUserId());
+        List<JWTToken> existingTokens = jwtTokenRepository.findByUserId(user.getUserId());
 
-        if (existingToken != null && now.isBefore(existingToken.getExpiresAt())) {
-            token = existingToken.getToken();
+        JWTToken activeToken = null;
+        for (JWTToken t : existingTokens) {
+            if (t != null && now.isBefore(t.getExpiresAt())) {
+                activeToken = t;
+                break;
+            }
+        }
+
+        if (activeToken != null) {
+            token = activeToken.getToken();
+            // Clean up all other tokens (expired/duplicates)
+            for (JWTToken t : existingTokens) {
+                if (t != null && !t.getTokenId().equals(activeToken.getTokenId())) {
+                    jwtTokenRepository.delete(t);
+                }
+            }
         } else {
             token = generateNewToken(user);
-            if (existingToken != null) {
-                jwtTokenRepository.delete(existingToken);
+            // Clean up all existing tokens as none are active
+            for (JWTToken t : existingTokens) {
+                if (t != null) {
+                    jwtTokenRepository.delete(t);
+                }
             }
             saveToken(user, token);
         }
