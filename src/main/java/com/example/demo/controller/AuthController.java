@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.dto.LoginRequest;
+import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.service.AuthService;
 
@@ -100,7 +101,17 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Google ID token (credential) is required"));
             }
 
-            User user = authService.authenticateGoogleUser(idToken);
+            String expectedRoleValue = requestBody.get("expectedRole");
+            Role expectedRole = null;
+            if (expectedRoleValue != null && !expectedRoleValue.isBlank()) {
+                try {
+                    expectedRole = Role.valueOf(expectedRoleValue.trim().toUpperCase());
+                } catch (IllegalArgumentException ex) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid expectedRole"));
+                }
+            }
+
+            User user = authService.authenticateGoogleUser(idToken, expectedRole);
             String token = authService.generateToken(user);
 
             ResponseCookie cookie = ResponseCookie.from("authToken", token)

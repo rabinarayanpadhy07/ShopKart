@@ -48,7 +48,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             String requestURI = request.getRequestURI();
-            logger.info("Request URI: {}", requestURI);
+            logger.debug("Request URI: {}", requestURI);
 
             // Public catalog: guests can browse products and search suggestions
             if (isPublicCatalogGet(request, requestURI)) {

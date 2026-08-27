@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.demo.entity.JWTToken;
+import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.JWTTokenRepository;
 import com.example.demo.repository.UserRepository;
@@ -153,6 +154,10 @@ public class AuthService {
     }
 
     public User authenticateGoogleUser(String idToken) {
+        return authenticateGoogleUser(idToken, null);
+    }
+
+    public User authenticateGoogleUser(String idToken, Role expectedRole) {
         RestTemplate restTemplate = new RestTemplate();
         String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
         try {
@@ -182,14 +187,23 @@ public class AuthService {
                 throw new RuntimeException("Email not found in Google token");
             }
 
-            // Find or create user
             Optional<User> existingUserOpt = userRepository.findByEmail(email);
             if (existingUserOpt.isPresent()) {
-                return existingUserOpt.get();
+                User existing = existingUserOpt.get();
+                if (expectedRole == Role.ADMIN && existing.getRole() != Role.ADMIN) {
+                    throw new RuntimeException("Access denied. This Google account is not an admin.");
+                }
+                return existing;
             }
 
-            // Check if username based on email is available
-            String baseUsername = email.split("@")[0];
+            if (expectedRole == Role.ADMIN) {
+                throw new RuntimeException("No admin account exists for this Google email. Ask a super-admin to create one first.");
+            }
+
+            String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9._-]", "");
+            if (baseUsername.isBlank()) {
+                baseUsername = "user";
+            }
             String username = baseUsername;
             int counter = 1;
             while (userRepository.findByUsername(username).isPresent()) {
@@ -197,17 +211,18 @@ public class AuthService {
                 counter++;
             }
 
-            // Create new user
             User user = new User();
             user.setEmail(email);
             user.setUsername(username);
-            user.setRole(com.example.demo.entity.Role.CUSTOMER);
+            user.setRole(Role.CUSTOMER);
             user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
             user.setCreatedAt(LocalDateTime.now());
             user.setUpdatedAt(LocalDateTime.now());
 
             return userRepository.save(user);
 
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Google authentication failed: " + e.getMessage());
         }
