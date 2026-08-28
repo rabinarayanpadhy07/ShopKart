@@ -186,7 +186,14 @@ public class DatabaseSeeder implements CommandLineRunner {
                 || seedAdminPassword == null || seedAdminPassword.trim().isEmpty()) {
             throw new IllegalStateException("Seed admin requires SEED_ADMIN_USERNAME, SEED_ADMIN_EMAIL, and SEED_ADMIN_PASSWORD.");
         }
-        if (userRepository.findByEmail(seedAdminEmail).isPresent()) {
+        
+        Optional<User> existingAdminOpt = userRepository.findByEmail(seedAdminEmail.trim());
+        if (existingAdminOpt.isPresent()) {
+            User admin = existingAdminOpt.get();
+            admin.setUsername(seedAdminUsername.trim());
+            admin.setPassword(passwordEncoder.encode(seedAdminPassword));
+            admin.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(admin);
             return;
         }
 
