@@ -38,7 +38,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/auth/google", "/api/users/register", "/admin", "/", "/index.html", "/assets/**", "/favicon.svg", "/favicon.ico").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/google", "/api/users/register", "/api/health", "/admin", "/", "/index.html", "/assets/**", "/favicon.svg", "/favicon.ico").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/suggestions", "/api/products/categories", "/api/reviews/product/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/users/me").authenticated()

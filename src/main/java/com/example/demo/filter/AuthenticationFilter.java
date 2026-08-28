@@ -31,6 +31,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
         "/api/users/register",
         "/api/auth/login",
         "/api/auth/google",
+        "/api/health",
         "/admin",
         "/",
         "/index.html",
