@@ -38,7 +38,7 @@ public class CartController {
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        Map<String, Object> cartItems = cartService.getCartItems(user.getUserId());
+        Map<String, Object> cartItems = cartService.getCartItems(user.getUserId(), user.getUsername(), user.getRole().name());
         return ResponseEntity.ok(cartItems);
     }
 

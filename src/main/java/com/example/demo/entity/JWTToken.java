@@ -7,12 +7,17 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "jwt_tokens")
+@Table(name = "jwt_tokens", indexes = {
+    @Index(name = "idx_jwt_tokens_token", columnList = "token"),
+    @Index(name = "idx_jwt_tokens_user_id", columnList = "user_id"),
+    @Index(name = "idx_jwt_tokens_expires_at", columnList = "expiresAt")
+})
 public class JWTToken {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) // Specifies that the tokenId will be auto-generated.
@@ -22,7 +27,7 @@ public class JWTToken {
     @JoinColumn(name = "user_id", nullable = false) // Links the token to a specific user in the Users table.
     private User user; // Represents the user associated with the token.
 
-    @Column(nullable = false) // Ensures that the token cannot be null.
+    @Column(nullable = false, length = 1000) // Ensures that the token cannot be null and fits JWT claims.
     private String token; // Stores the JWT token string.
 
     @Column(nullable = false) // Ensures that the expiration time cannot be null.

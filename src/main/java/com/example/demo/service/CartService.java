@@ -38,8 +38,6 @@ public class CartService {
 		if (quantity <= 0) {
 			throw new IllegalArgumentException("Quantity must be greater than 0");
 		}
-		User user = userRepository.findById(userId)
-				.orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
 
 		Product product = productRepository.findById(productId)
 				.orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + productId));
@@ -55,47 +53,46 @@ public class CartService {
 			cartRepository.save(cartItem);
 		} else {
 			validateAvailableStock(product, quantity);
-			CartItem newItem = new CartItem(user, product, quantity);
+			// Use reference proxy to eliminate unnecessary user database select
+			User userRef = userRepository.getReferenceById(userId);
+			CartItem newItem = new CartItem(userRef, product, quantity);
 			cartRepository.save(newItem);
 		}
 	}
 
-	// Get Cart Items for a User
-	public Map<String, Object> getCartItems(int userId) {
-		// Fetch the cart items for the user with product details
+	// Get Cart Items for a User (with known username/role to avoid redundant user DB query)
+	public Map<String, Object> getCartItems(int userId, String username, String role) {
 		List<CartItem> cartItems = cartRepository.findCartItemsWithProductDetails(userId);
 
-		// Create a response map to hold the cart details
 		Map<String, Object> response = new HashMap<>();
-		User user = userRepository.findById(userId)
-				.orElseThrow(() -> new IllegalArgumentException("User not found"));
+		response.put("username", username);
+		response.put("role", role);
 
-		response.put("username", user.getUsername());
-		response.put("role", user.getRole().toString());
-
-		// List to hold the product details
 		List<Map<String, Object>> products = new ArrayList<>();
 		double overallTotalPrice = 0;
 
+		// Batch fetch all product images in a single query to eliminate N+1
+		List<Integer> productIds = cartItems.stream()
+				.map(item -> item.getProduct().getProductId())
+				.distinct()
+				.toList();
+
+		Map<Integer, String> firstImageMap = new HashMap<>();
+		if (!productIds.isEmpty()) {
+			List<ProductImage> productImages = productImageRepository.findByProduct_ProductIdIn(productIds);
+			for (ProductImage image : productImages) {
+				if (image != null && image.getProduct() != null) {
+					firstImageMap.putIfAbsent(image.getProduct().getProductId(), image.getImageUrl());
+				}
+			}
+		}
+
 		for (CartItem cartItem : cartItems) {
 			Map<String, Object> productDetails = new HashMap<>();
-
-			// Get product details
 			Product product = cartItem.getProduct();
 
-			// Fetch product images from the ProductImageRepository
-			List<ProductImage> productImages = productImageRepository.findByProduct_ProductId(product.getProductId());
-			String imageUrl = null;
+			String imageUrl = firstImageMap.getOrDefault(product.getProductId(), "default-image-url");
 
-			if (productImages != null && !productImages.isEmpty()) {
-				// If there are images, get the first image's URL
-				imageUrl = productImages.get(0).getImageUrl();
-			} else {
-				// Set a default image if no images are available
-				imageUrl = "default-image-url";  // You can replace this with your default image URL
-			}
-
-			// Populate product details into the map
 			productDetails.put("product_id", product.getProductId());
 			productDetails.put("image_url", imageUrl);
 			productDetails.put("name", product.getName());
@@ -104,22 +101,23 @@ public class CartService {
 			productDetails.put("quantity", cartItem.getQuantity());
 			productDetails.put("total_price", cartItem.getQuantity() * product.getPrice().doubleValue());
 
-			// Add the product details to the products list
 			products.add(productDetails);
-
-			// Add to the overall total price
 			overallTotalPrice += cartItem.getQuantity() * product.getPrice().doubleValue();
 		}
 
-		// Prepare the final cart response
 		Map<String, Object> cart = new HashMap<>();
 		cart.put("products", products);
 		cart.put("overall_total_price", overallTotalPrice);
 
-		// Add the cart details to the response
 		response.put("cart", cart);
-
 		return response;
+	}
+
+	// Get Cart Items for a User (fallback if username/role unknown)
+	public Map<String, Object> getCartItems(int userId) {
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new IllegalArgumentException("User not found"));
+		return getCartItems(userId, user.getUsername(), user.getRole().toString());
 	}
 
 	// Update Cart Item Quantity
@@ -127,11 +125,6 @@ public class CartService {
 		if (quantity < 0) {
 			throw new IllegalArgumentException("Quantity cannot be negative");
 		}
-		User user = userRepository.findById(userId)
-				.orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-		Product product = productRepository.findById(productId)
-				.orElseThrow(() -> new IllegalArgumentException("Product not found"));
 
 		// Fetch cart item for this userId and productId
 		Optional<CartItem> existingItem = cartRepository.findByUserAndProduct(userId, productId);
@@ -141,10 +134,17 @@ public class CartService {
 			if (quantity == 0) {
 				deleteCartItem(userId, productId);
 			} else {
-				validateAvailableStock(product, quantity);
+				validateAvailableStock(cartItem.getProduct(), quantity);
 				cartItem.setQuantity(quantity);
 				cartRepository.save(cartItem);
 			}
+		} else if (quantity > 0) {
+			Product product = productRepository.findById(productId)
+					.orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + productId));
+			validateAvailableStock(product, quantity);
+			User userRef = userRepository.getReferenceById(userId);
+			CartItem newItem = new CartItem(userRef, product, quantity);
+			cartRepository.save(newItem);
 		}
 	}
 
@@ -156,12 +156,6 @@ public class CartService {
 
 	// Delete Cart Item
 	public void deleteCartItem(int userId, int productId) {
-		User user = userRepository.findById(userId)
-				.orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-		Product product = productRepository.findById(productId)
-				.orElseThrow(() -> new IllegalArgumentException("Product not found"));
-
 		cartRepository.deleteCartItem(userId, productId);
 	}
 }

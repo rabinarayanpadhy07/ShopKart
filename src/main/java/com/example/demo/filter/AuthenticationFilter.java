@@ -19,13 +19,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 public class AuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthenticationFilter.class);
     private final AuthService authService;
-    private final UserRepository userRepository;
 
     private static final String[] UNAUTHENTICATED_PATHS = {
         "/api/users/register",
@@ -39,9 +37,12 @@ public class AuthenticationFilter extends OncePerRequestFilter {
         "/favicon.ico"
     };
 
+    public AuthenticationFilter(AuthService authService) {
+        this.authService = authService;
+    }
+
     public AuthenticationFilter(AuthService authService, UserRepository userRepository) {
         this.authService = authService;
-        this.userRepository = userRepository;
     }
 
     @Override
@@ -49,9 +50,10 @@ public class AuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             String requestURI = request.getRequestURI();
-            logger.debug("Request URI: {}", requestURI);
+            logger.debug("Processing request URI: {}", requestURI);
 
-            // Public catalog: guests can browse products and search suggestions
+            // Public catalog: guests can browse products, suggestions, categories, filters, reviews
+            // without performing any database authentication
             if (isPublicCatalogGet(request, requestURI)) {
                 attachUserIfPresent(request);
                 filterChain.doFilter(request, response);
@@ -70,25 +72,22 @@ public class AuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // Extract and validate the token
+            // Extract token from cookie
             String token = getAuthTokenFromCookies(request);
-            if (token == null || !authService.validateToken(token)) {
+            if (token == null || !authService.validateTokenCryptographic(token)) {
                 sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Invalid or missing token");
                 return;
             }
 
-            // Extract username and verify user
-            String username = authService.extractUsername(token);
-            Optional<User> userOptional = userRepository.findByUsername(username);
-            if (userOptional.isEmpty()) {
+            // Extract user directly from verified JWT claims without querying the database
+            User authenticatedUser = authService.extractUserFromToken(token);
+            if (authenticatedUser == null || authenticatedUser.getUsername() == null) {
                 sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: User not found");
                 return;
             }
 
-            // Get authenticated user and role
-            User authenticatedUser = userOptional.get();
-            Role role = authenticatedUser.getRole();
-            logger.info("Authenticated User: {}, Role: {}", authenticatedUser.getUsername(), role);
+            Role role = authenticatedUser.getRole() != null ? authenticatedUser.getRole() : Role.CUSTOMER;
+            logger.debug("Authenticated User: {}, Role: {}", authenticatedUser.getUsername(), role);
 
             // Set Spring Security Context authentication
             List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
@@ -110,34 +109,42 @@ public class AuthenticationFilter extends OncePerRequestFilter {
         if (!"GET".equalsIgnoreCase(request.getMethod())) {
             return false;
         }
-        return "/api/products".equals(requestURI) || requestURI.startsWith("/api/products/suggestions") || "/api/products/categories".equals(requestURI) || requestURI.startsWith("/api/reviews/product/");
+        return "/api/products".equals(requestURI)
+                || requestURI.startsWith("/api/products/suggestions")
+                || "/api/products/categories".equals(requestURI)
+                || "/api/products/filters".equals(requestURI)
+                || requestURI.startsWith("/api/reviews/product/");
     }
 
+    /**
+     * Optional user attachment for public catalog GET requests.
+     * Evaluates JWT claims purely in memory with ZERO database queries.
+     */
     private void attachUserIfPresent(HttpServletRequest request) {
         try {
             String token = getAuthTokenFromCookies(request);
-            if (token == null || !authService.validateToken(token)) {
+            if (token == null || !authService.validateTokenCryptographic(token)) {
                 return;
             }
-            String username = authService.extractUsername(token);
-            Optional<User> userOptional = userRepository.findByUsername(username);
-            if (userOptional.isEmpty()) {
+            User authenticatedUser = authService.extractUserFromToken(token);
+            if (authenticatedUser == null || authenticatedUser.getUsername() == null) {
                 return;
             }
-            User authenticatedUser = userOptional.get();
-            Role role = authenticatedUser.getRole();
+            Role role = authenticatedUser.getRole() != null ? authenticatedUser.getRole() : Role.CUSTOMER;
             List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     authenticatedUser, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
             request.setAttribute("authenticatedUser", authenticatedUser);
         } catch (Exception e) {
-            logger.warn("Could not attach optional user for public catalog request", e);
+            logger.debug("Could not attach optional user for public catalog request: {}", e.getMessage());
         }
     }
 
     private boolean isUnauthenticatedPath(String requestURI) {
-        return Arrays.asList(UNAUTHENTICATED_PATHS).contains(requestURI) || requestURI.startsWith("/error") || requestURI.startsWith("/assets/");
+        return Arrays.asList(UNAUTHENTICATED_PATHS).contains(requestURI)
+                || requestURI.startsWith("/error")
+                || requestURI.startsWith("/assets/");
     }
 
     private void sendErrorResponse(HttpServletResponse response, int statusCode, String message) throws IOException {

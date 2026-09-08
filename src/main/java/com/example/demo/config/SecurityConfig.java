@@ -6,17 +6,23 @@ import com.example.demo.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import org.springframework.beans.factory.annotation.Value;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,21 +38,23 @@ public class SecurityConfig {
         this.userRepository = userRepository;
     }
 
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/login", "/api/auth/google", "/api/users/register", "/api/health", "/admin", "/", "/index.html", "/assets/**", "/favicon.svg", "/favicon.ico").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/suggestions", "/api/products/categories", "/api/reviews/product/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/suggestions", "/api/products/categories", "/api/products/filters", "/api/reviews/product/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/users/me").authenticated()
                 .requestMatchers("/api/auth/logout").authenticated()
                 .requestMatchers("/api/**").hasAnyRole("CUSTOMER", "ADMIN")
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(new AuthenticationFilter(authService, userRepository), UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(new AuthenticationFilter(authService), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

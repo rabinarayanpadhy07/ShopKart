@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 @Component
 public class DatabaseSeeder implements CommandLineRunner {
 
@@ -28,7 +30,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final ProductImageRepository productImageRepository;
     private final UserRepository userRepository;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${app.seed.demo-data:false}")
     private boolean seedDemoData;
@@ -48,12 +50,13 @@ public class DatabaseSeeder implements CommandLineRunner {
     public DatabaseSeeder(CategoryRepository categoryRepository,
                           ProductRepository productRepository,
                           ProductImageRepository productImageRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          PasswordEncoder passwordEncoder) {
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
         this.productImageRepository = productImageRepository;
         this.userRepository = userRepository;
-        this.passwordEncoder = new BCryptPasswordEncoder();
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override

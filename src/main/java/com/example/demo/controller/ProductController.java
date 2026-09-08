@@ -46,13 +46,13 @@ public class ProductController {
         try {
             User authenticatedUser = (User) request.getAttribute("authenticatedUser");
             if (page < 0) {
-                throw new RuntimeException("Page cannot be negative");
+                throw new IllegalArgumentException("Page cannot be negative");
             }
             if (size < 1 || size > 100) {
-                throw new RuntimeException("Page size must be between 1 and 100");
+                throw new IllegalArgumentException("Page size must be between 1 and 100");
             }
             if (!ALLOWED_SORT_FIELDS.contains(sortBy)) {
-                throw new RuntimeException("Unsupported sort field");
+                throw new IllegalArgumentException("Unsupported sort field");
             }
 
             Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
@@ -108,12 +108,25 @@ public class ProductController {
             response.put("totalPages", productPage.getTotalPages());
             response.put("pageSize", productPage.getSize());
             
-            // Send list of all brands so the UI can construct filter checklist
+            // Send list of all brands from cache so UI can construct filter checklist without querying DB
             response.put("brands", productService.getDistinctBrands());
 
             return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An unexpected error occurred while fetching products"));
+        }
+    }
+
+    @GetMapping("/filters")
+    public ResponseEntity<Map<String, Object>> getFilters() {
+        try {
+            return ResponseEntity.ok(productService.getProductFilters());
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to load product filters"));
         }
     }
 
@@ -141,8 +154,11 @@ public class ProductController {
                 suggestions.add(item);
             }
             return ResponseEntity.ok(Map.of("suggestions", suggestions));
-        } catch (RuntimeException e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to load suggestions"));
         }
     }
 
@@ -150,8 +166,9 @@ public class ProductController {
     public ResponseEntity<?> getCategories() {
         try {
             return ResponseEntity.ok(productService.getAllCategories());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to load categories"));
         }
     }
 }

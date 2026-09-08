@@ -22,7 +22,15 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query("SELECT DISTINCT p.brand FROM Product p WHERE p.brand IS NOT NULL")
     List<String> findDistinctBrands();
 
-    @Query("SELECT p FROM Product p WHERE " +
+    @Query(value = "SELECT p FROM Product p LEFT JOIN FETCH p.category WHERE " +
+           "(:search IS NULL OR :search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.brand) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.category.categoryName) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+           "(:category IS NULL OR :category = '' OR p.category.categoryName = :category) AND " +
+           "(:brand IS NULL OR :brand = '' OR p.brand = :brand) AND " +
+           "(:minPrice IS NULL OR p.price >= :minPrice) AND " +
+           "(:maxPrice IS NULL OR p.price <= :maxPrice) AND " +
+           "(:minRating IS NULL OR p.averageRating >= :minRating) AND " +
+           "(:inStock IS NULL OR :inStock = false OR p.stock > 0)",
+           countQuery = "SELECT COUNT(p) FROM Product p WHERE " +
            "(:search IS NULL OR :search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.brand) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.category.categoryName) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
            "(:category IS NULL OR :category = '' OR p.category.categoryName = :category) AND " +
            "(:brand IS NULL OR :brand = '' OR p.brand = :brand) AND " +
@@ -41,6 +49,8 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
             Pageable pageable);
 
     @Query("SELECT p FROM Product p WHERE " +
+           "LOWER(p.name) LIKE LOWER(CONCAT(:query, '%')) OR " +
+           "LOWER(p.brand) LIKE LOWER(CONCAT(:query, '%')) OR " +
            "LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(p.brand) LIKE LOWER(CONCAT('%', :query, '%')) OR " +

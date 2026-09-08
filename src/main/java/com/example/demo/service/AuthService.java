@@ -8,6 +8,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.demo.entity.JWTToken;
@@ -16,6 +17,7 @@ import com.example.demo.entity.User;
 import com.example.demo.repository.JWTTokenRepository;
 import com.example.demo.repository.UserRepository;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -38,7 +40,8 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final JWTTokenRepository jwtTokenRepository;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
+    private final RestTemplate restTemplate;
 
     @Value("${google.client.id:}")
     private String googleClientId;
@@ -46,13 +49,16 @@ public class AuthService {
     @Value("${jwt.expiration:3600000}")
     private long jwtExpirationMs;
 
-    // Injecting jwt.secret from properties file
     @Autowired
-    public AuthService(UserRepository userRepository, JWTTokenRepository jwtTokenRepository,
-                       @Value("${jwt.secret}") String jwtSecret) {
+    public AuthService(UserRepository userRepository,
+                       JWTTokenRepository jwtTokenRepository,
+                       @Value("${jwt.secret}") String jwtSecret,
+                       PasswordEncoder passwordEncoder,
+                       RestTemplate restTemplate) {
         this.userRepository = userRepository;
         this.jwtTokenRepository = jwtTokenRepository;
-        this.passwordEncoder = new BCryptPasswordEncoder();
+        this.passwordEncoder = passwordEncoder;
+        this.restTemplate = restTemplate;
 
         // Ensure the key length is at least 64 bytes
         if (jwtSecret.getBytes(StandardCharsets.UTF_8).length < 64) {
@@ -61,54 +67,58 @@ public class AuthService {
         this.SIGNING_KEY = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
+    public AuthService(UserRepository userRepository, JWTTokenRepository jwtTokenRepository, String jwtSecret) {
+        this(userRepository, jwtTokenRepository, jwtSecret, new BCryptPasswordEncoder(), new RestTemplate());
+    }
+
     public User authenticate(String username, String password) {
+        long totalStart = System.currentTimeMillis();
+
+        long t0 = System.nanoTime();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Invalid username or password"));
+        long lookupMs = (System.nanoTime() - t0) / 1_000_000;
 
-        if (!passwordEncoder.matches(password, user.getPassword())) {
+        long t1 = System.nanoTime();
+        boolean matches = passwordEncoder.matches(password, user.getPassword());
+        long pwMs = (System.nanoTime() - t1) / 1_000_000;
+
+        long totalDurationMs = System.currentTimeMillis() - totalStart;
+
+        logger.info("Login performance: username={}, userLookupMs={}, passwordVerifyMs={}, totalDurationMs={}",
+                user.getUsername(), lookupMs, pwMs, totalDurationMs);
+
+        if (!matches) {
             throw new RuntimeException("Invalid username or password");
         }
         return user;
     }
 
     public String generateToken(User user) {
-        String token;
-        LocalDateTime now = LocalDateTime.now();
-        List<JWTToken> existingTokens = jwtTokenRepository.findByUserId(user.getUserId());
+        long tGenStart = System.nanoTime();
+        String token = generateNewToken(user);
+        long tokenGenMs = (System.nanoTime() - tGenStart) / 1_000_000;
 
-        JWTToken activeToken = null;
-        for (JWTToken t : existingTokens) {
-            if (t != null && now.isBefore(t.getExpiresAt())) {
-                activeToken = t;
-                break;
-            }
-        }
-
-        if (activeToken != null) {
-            token = activeToken.getToken();
-            // Clean up all other tokens (expired/duplicates)
-            for (JWTToken t : existingTokens) {
-                if (t != null && !t.getTokenId().equals(activeToken.getTokenId())) {
-                    jwtTokenRepository.delete(t);
-                }
-            }
-        } else {
-            token = generateNewToken(user);
-            // Clean up all existing tokens as none are active
-            for (JWTToken t : existingTokens) {
-                if (t != null) {
-                    jwtTokenRepository.delete(t);
-                }
-            }
+        long tPersistStart = System.nanoTime();
+        try {
+            // Bulk clean up previous tokens for this user in a single query
+            jwtTokenRepository.deleteByUserId(user.getUserId());
             saveToken(user, token);
+        } catch (Exception e) {
+            logger.warn("Could not persist or prune token record: {}", e.getMessage());
         }
+        long tokenPersistMs = (System.nanoTime() - tPersistStart) / 1_000_000;
+
+        logger.debug("Token timing: tokenGenMs={}, tokenPersistMs={}", tokenGenMs, tokenPersistMs);
         return token;
     }
 
     private String generateNewToken(User user) {
         return Jwts.builder()
                 .setSubject(user.getUsername())
+                .claim("userId", user.getUserId())
                 .claim("role", user.getRole().name())
+                .claim("email", user.getEmail())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(SIGNING_KEY, SignatureAlgorithm.HS512)
@@ -121,36 +131,91 @@ public class AuthService {
     }
 
     public void logout(User user) {
-        jwtTokenRepository.deleteByUserId(user.getUserId());
+        if (user != null && user.getUserId() != null) {
+            jwtTokenRepository.deleteByUserId(user.getUserId());
+        }
     }
 
+    /**
+     * Validates JWT signature and expiration cryptographically in-memory
+     * without querying the database.
+     */
     public boolean validateToken(String token) {
+        return validateTokenCryptographic(token);
+    }
+
+    public boolean validateTokenCryptographic(String token) {
         try {
             Jwts.parserBuilder()
                 .setSigningKey(SIGNING_KEY)
                 .build()
                 .parseClaimsJws(token);
-
-            // Check if the token exists in the database and is not expired
-            Optional<JWTToken> jwtToken = jwtTokenRepository.findByToken(token);
-            if (jwtToken.isPresent()) {
-                return jwtToken.get().getExpiresAt().isAfter(LocalDateTime.now());
-            }
-
-            return false;
+            return true;
         } catch (Exception e) {
-            logger.warn("Token validation failed: {}", e.getMessage());
+            logger.debug("Cryptographic token validation failed: {}", e.getMessage());
             return false;
         }
     }
 
-    public String extractUsername(String token) {
+    public Claims parseClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(SIGNING_KEY)
                 .build()
                 .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+                .getBody();
+    }
+
+    /**
+     * Extracts user details directly from verified JWT claims without a database query.
+     * Falls back to database lookup only if the userId claim is absent (legacy tokens).
+     */
+    public User extractUserFromToken(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            String username = claims.getSubject();
+            String roleStr = claims.get("role", String.class);
+            Object userIdObj = claims.get("userId");
+            String email = claims.get("email", String.class);
+
+            Integer userId = null;
+            if (userIdObj instanceof Number num) {
+                userId = num.intValue();
+            } else if (userIdObj instanceof String str) {
+                try {
+                    userId = Integer.parseInt(str);
+                } catch (NumberFormatException ignored) {}
+            }
+
+            Role role = Role.CUSTOMER;
+            if (roleStr != null) {
+                try {
+                    role = Role.valueOf(roleStr.trim().toUpperCase());
+                } catch (IllegalArgumentException ignored) {}
+            }
+
+            User user = new User();
+            user.setUserId(userId);
+            user.setUsername(username);
+            user.setRole(role);
+            user.setEmail(email);
+
+            // Fallback for legacy tokens issued without userId claim
+            if (userId == null && username != null) {
+                userRepository.findByUsername(username).ifPresent(existing -> {
+                    user.setUserId(existing.getUserId());
+                    if (user.getEmail() == null) user.setEmail(existing.getEmail());
+                });
+            }
+
+            return user;
+        } catch (Exception e) {
+            logger.debug("Failed to extract user from token claims: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    public String extractUsername(String token) {
+        return parseClaims(token).getSubject();
     }
 
     public User authenticateGoogleUser(String idToken) {
@@ -158,7 +223,6 @@ public class AuthService {
     }
 
     public User authenticateGoogleUser(String idToken, Role expectedRole) {
-        RestTemplate restTemplate = new RestTemplate();
         String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
         try {
             ResponseEntity<Map> responseEntity = restTemplate.getForEntity(url, Map.class);

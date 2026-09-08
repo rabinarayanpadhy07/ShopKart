@@ -40,6 +40,25 @@ public class WishlistService {
     public List<Map<String, Object>> getDetailedWishlistForUser(User user) {
         List<WishlistItem> wishlist = wishlistRepository.findByUserId(user.getUserId());
         List<Map<String, Object>> detailedWishlist = new ArrayList<>();
+        if (wishlist.isEmpty()) {
+            return detailedWishlist;
+        }
+
+        List<Integer> productIds = wishlist.stream()
+                .map(item -> item.getProduct().getProductId())
+                .distinct()
+                .toList();
+
+        Map<Integer, String> firstImageMap = new HashMap<>();
+        if (!productIds.isEmpty()) {
+            List<ProductImage> productImages = productImageRepository.findByProduct_ProductIdIn(productIds);
+            for (ProductImage img : productImages) {
+                if (img != null && img.getProduct() != null) {
+                    firstImageMap.putIfAbsent(img.getProduct().getProductId(), img.getImageUrl());
+                }
+            }
+        }
+
         for (WishlistItem item : wishlist) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", item.getId());
@@ -53,14 +72,7 @@ public class WishlistService {
             productMap.put("price", product.getPrice());
             productMap.put("stock", product.getStock());
             productMap.put("brand", product.getBrand());
-            
-            // Fetch product image
-            List<ProductImage> productImages = productImageRepository.findByProduct_ProductId(product.getProductId());
-            if (productImages != null && !productImages.isEmpty()) {
-                productMap.put("imageUrl", productImages.get(0).getImageUrl());
-            } else {
-                productMap.put("imageUrl", null);
-            }
+            productMap.put("imageUrl", firstImageMap.get(product.getProductId()));
             map.put("product", productMap);
             
             // Map user details

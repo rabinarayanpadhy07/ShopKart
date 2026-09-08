@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "cart_items")
+@Table(name = "cart_items", indexes = {
+    @Index(name = "idx_cart_items_user_id", columnList = "user_id"),
+    @Index(name = "idx_cart_user_product", columnList = "user_id, product_id")
+})
 public class CartItem implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

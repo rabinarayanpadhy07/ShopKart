@@ -20,7 +20,7 @@ public interface CartRepository extends JpaRepository<CartItem, Integer> {
     @Query("SELECT c FROM CartItem c WHERE c.user.userId = :userId AND c.product.productId = :productId")
     Optional<CartItem> findByUserAndProduct(int userId, int productId);
 
-    @Query("SELECT c FROM CartItem c JOIN FETCH c.product p LEFT JOIN FETCH ProductImage pi ON p.productId = pi.product.productId WHERE c.user.userId = :userId")
+    @Query("SELECT c FROM CartItem c JOIN FETCH c.product p WHERE c.user.userId = :userId")
     List<CartItem> findCartItemsWithProductDetails(int userId);
 
     // Update quantity for a specific cart item

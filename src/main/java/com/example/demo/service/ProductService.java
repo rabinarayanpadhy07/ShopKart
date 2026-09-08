@@ -64,8 +64,28 @@ public class ProductService {
         return productRepository.findSearchSuggestions(query.trim(), pageable);
     }
 
+    private volatile List<String> cachedBrands = null;
+    private volatile long lastBrandCacheTime = 0;
+    private static final long BRAND_CACHE_TTL_MS = 300_000; // 5 minutes
+
     public List<String> getDistinctBrands() {
-        return productRepository.findDistinctBrands();
+        long now = System.currentTimeMillis();
+        if (cachedBrands == null || (now - lastBrandCacheTime) > BRAND_CACHE_TTL_MS) {
+            synchronized (this) {
+                if (cachedBrands == null || (now - lastBrandCacheTime) > BRAND_CACHE_TTL_MS) {
+                    cachedBrands = productRepository.findDistinctBrands();
+                    lastBrandCacheTime = now;
+                }
+            }
+        }
+        return cachedBrands;
+    }
+
+    public java.util.Map<String, Object> getProductFilters() {
+        return java.util.Map.of(
+            "brands", getDistinctBrands(),
+            "categories", getAllCategories()
+        );
     }
 
     public List<String> getProductImages(Integer productId) {
