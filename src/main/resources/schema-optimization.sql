@@ -57,3 +57,18 @@ CREATE INDEX IF NOT EXISTS idx_reviews_user_product ON reviews(user_id, product_
 -- 10. Addresses Table Indexes
 -- Speeds up checkout address lookups for authenticated users
 CREATE INDEX IF NOT EXISTS idx_addresses_user_id ON addresses(user_id);
+
+-- 11. Products Full-Text Search Index (NOT YET APPLIED - review before running)
+-- ProductRepository.findFilteredProducts/findSearchSuggestions use LIKE '%term%'
+-- (leading wildcard) against name/description/brand. The btree indexes above
+-- (idx_products_name, idx_products_brand) cannot be used for a leading-wildcard
+-- LIKE, so search/suggestions fall back to a full table scan of `products` once
+-- the catalog grows past a trivial size. A FULLTEXT index lets MySQL use
+-- MATCH...AGAINST instead, which scales far better - but switching the queries
+-- in ProductRepository.java to MATCH...AGAINST is a behavior change (relevance
+-- ranking, InnoDB's default ft_min_token_size=3 drops matches shorter than 3
+-- chars, boolean-mode operator handling) that needs testing against a real
+-- MySQL instance before shipping, which wasn't available in this environment.
+-- Adding the index here is safe and additive on its own; the query-side change
+-- is a separate, deliberate follow-up.
+-- CREATE FULLTEXT INDEX IF NOT EXISTS ft_products_search ON products(name, description, brand);
