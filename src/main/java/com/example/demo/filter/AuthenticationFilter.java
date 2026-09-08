@@ -143,6 +143,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
 
     private boolean isUnauthenticatedPath(String requestURI) {
         return Arrays.asList(UNAUTHENTICATED_PATHS).contains(requestURI)
+                || "/api/auth/logout".equals(requestURI)
                 || requestURI.startsWith("/error")
                 || requestURI.startsWith("/assets/");
     }
