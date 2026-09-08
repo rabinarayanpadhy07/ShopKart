@@ -52,6 +52,7 @@ public class Order {
     private LocalDateTime returnTimestamp;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<OrderItem> orderItems;
 
     // Getters and Setters for new fields

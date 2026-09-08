@@ -110,6 +110,8 @@ public class PaymentController {
             String razorpayOrderId = paymentService.createOrder(user.getUserId(), totalAmount, orderItems, addressId, formattedAddress);
 
             return ResponseEntity.ok(razorpayOrderId);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(e.getMessage());
         } catch (RazorpayException e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error creating Razorpay order: " + e.getMessage());

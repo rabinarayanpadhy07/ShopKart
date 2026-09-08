@@ -46,6 +46,12 @@ public class PaymentService {
 
     @Transactional
     public String createOrder(int userId, BigDecimal totalAmount, List<OrderItem> orderItems, Integer addressId, String formattedAddress) throws RazorpayException {
+        if (!isConfigured(razorpayKeyId) || !isConfigured(razorpayKeySecret)) {
+            throw new IllegalStateException(
+                "Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to real test-mode " +
+                "credentials from your Razorpay dashboard (see .env.example) - payments cannot be processed with placeholder keys.");
+        }
+
         // Create Razorpay client
         RazorpayClient razorpayClient = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
 
@@ -75,6 +81,10 @@ public class PaymentService {
         }
 
         return razorpayOrder.get("id");
+    }
+
+    private static boolean isConfigured(String value) {
+        return value != null && !value.isBlank() && !value.startsWith("your-razorpay");
     }
 
     @Transactional(rollbackFor = Exception.class)
