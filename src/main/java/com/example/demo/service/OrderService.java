@@ -203,14 +203,14 @@ public class OrderService {
      * Admin method to fetch all orders with status/user filter.
      */
     public List<Order> getAllOrders() {
-        return orderRepository.findAll();
+        return orderRepository.findAllByOrderByCreatedAtDesc();
     }
 
     /**
      * Admin method to fetch all orders with detailed item information.
      */
     public List<Map<String, Object>> getAllOrdersDetailed() {
-        List<Order> orders = orderRepository.findAll();
+        List<Order> orders = orderRepository.findAllByOrderByCreatedAtDesc();
         if (orders.isEmpty()) {
             return new ArrayList<>();
         }
