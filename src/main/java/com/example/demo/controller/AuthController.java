@@ -18,15 +18,21 @@ import com.example.demo.dto.LoginRequest;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.service.AuthService;
+import com.example.demo.service.RateLimitService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 
 @RestController
 @CrossOrigin(origins = "${spring.web.cors.allowed-origins:http://localhost:5174}", allowCredentials = "true")
 @RequestMapping("/api/auth")
 public class AuthController {
+    private static final int LOGIN_MAX_ATTEMPTS = 8;
+    private static final int LOGIN_WINDOW_SECONDS = 60;
+
     private final AuthService authService;
+    private final RateLimitService rateLimitService;
 
     @Value("${app.security.cookie-secure:true}")
     private boolean cookieSecure;
@@ -34,12 +40,16 @@ public class AuthController {
     @Value("${app.security.cookie-same-site:None}")
     private String cookieSameSite;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, RateLimitService rateLimitService) {
         this.authService = authService;
+        this.rateLimitService = rateLimitService;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request, HttpServletResponse response) {
+        if (!rateLimitService.tryAcquire("login:" + clientIp(request), LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_SECONDS)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", "Too many login attempts. Please try again in a minute."));
+        }
         try {
             User user = authService.authenticate(loginRequest.getUsername(), loginRequest.getPassword());
             String token = authService.generateToken(user);
@@ -71,8 +81,9 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> logout(HttpServletRequest request, HttpServletResponse response) {
         try {
             User user = (User) request.getAttribute("authenticatedUser");
+            String token = getAuthTokenFromCookies(request);
             if (user != null) {
-                authService.logout(user);
+                authService.logout(user, token);
             }
             ResponseCookie cookie = ResponseCookie.from("authToken", "")
                     .httpOnly(true)
@@ -94,7 +105,10 @@ public class AuthController {
     }
 
     @PostMapping("/google")
-    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> requestBody, HttpServletResponse response) {
+    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> requestBody, HttpServletRequest request, HttpServletResponse response) {
+        if (!rateLimitService.tryAcquire("google:" + clientIp(request), LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_SECONDS)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", "Too many attempts. Please try again in a minute."));
+        }
         try {
             String idToken = requestBody.get("credential");
             if (idToken == null || idToken.trim().isEmpty()) {
@@ -133,5 +147,26 @@ public class AuthController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
+
+    private String getAuthTokenFromCookies(HttpServletRequest request) {
+        jakarta.servlet.http.Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (jakarta.servlet.http.Cookie cookie : cookies) {
+            if ("authToken".equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
     }
 }
