@@ -28,6 +28,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +38,11 @@ public class AuthService {
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
     private final Key SIGNING_KEY;
+
+    // In-memory revocation list so logout takes effect immediately without a
+    // DB round-trip on every request. Entries are keyed by raw token and
+    // pruned once their own expiration passes (bounded by jwt.expiration).
+    private final ConcurrentHashMap<String, Long> revokedTokens = new ConcurrentHashMap<>();
 
     private final UserRepository userRepository;
     private final JWTTokenRepository jwtTokenRepository;
@@ -130,10 +136,40 @@ public class AuthService {
         jwtTokenRepository.save(jwtToken);
     }
 
-    public void logout(User user) {
+    public void logout(User user, String token) {
         if (user != null && user.getUserId() != null) {
             jwtTokenRepository.deleteByUserId(user.getUserId());
         }
+        revokeToken(token);
+    }
+
+    /**
+     * Marks a token as revoked so it fails validation immediately, even
+     * though it remains cryptographically valid until its natural expiry.
+     */
+    private void revokeToken(String token) {
+        if (token == null) {
+            return;
+        }
+        try {
+            long expiryMs = parseClaims(token).getExpiration().getTime();
+            revokedTokens.put(token, expiryMs);
+        } catch (Exception e) {
+            logger.debug("Could not record revocation for token: {}", e.getMessage());
+        }
+    }
+
+    private boolean isRevoked(String token) {
+        Long expiryMs = revokedTokens.get(token);
+        if (expiryMs == null) {
+            return false;
+        }
+        if (expiryMs < System.currentTimeMillis()) {
+            // Naturally expired since revocation - safe to forget, crypto check will reject it anyway.
+            revokedTokens.remove(token);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -145,6 +181,9 @@ public class AuthService {
     }
 
     public boolean validateTokenCryptographic(String token) {
+        if (isRevoked(token)) {
+            return false;
+        }
         try {
             Jwts.parserBuilder()
                 .setSigningKey(SIGNING_KEY)

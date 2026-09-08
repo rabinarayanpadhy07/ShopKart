@@ -7,21 +7,21 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: salessavvy
-      MYSQL_ROOT_PASSWORD: Silu@2026#
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in your .env file (see .env.example)}
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pSilu@2026#"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   app:
     build:
-      context: ..
-      dockerfile: ShopKart/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     container_name: shopkart-app
     restart: unless-stopped
     ports:
@@ -33,12 +33,22 @@ services:
       - PORT=9090
       - DB_URL=jdbc:mysql://db:3306/salessavvy?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       - DB_USERNAME=root
-      - DB_PASSWORD=Silu@2026#
-      - JWT_SECRET=your-very-long-secure-secret-key-for-production-12345678901234567890
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in your .env file (see .env.example)}
+      - DDL_AUTO=${DDL_AUTO:-update}
+      - APP_PRODUCTION=${APP_PRODUCTION:-false}
+      - AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE:-false}
+      - AUTH_COOKIE_SAME_SITE=${AUTH_COOKIE_SAME_SITE:-Lax}
+      - SEED_DEMO_DATA=${SEED_DEMO_DATA:-true}
+      - SEED_ADMIN=${SEED_ADMIN:-true}
+      - SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME:-admin}
+      - SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-admin@example.com}
+      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:?Set SEED_ADMIN_PASSWORD in your .env file (see .env.example)}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:5174}
+      - JWT_SECRET=${JWT_SECRET:-dev-only-change-me-dev-only-change-me-dev-only-change-me-dev-only-change-me}
       - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Xms256m
-      - RAZORPAY_KEY_ID=rzp_test_LqWBBDbgwot5lh
-      - RAZORPAY_KEY_SECRET=NETk6HP1NzRzufOYZ7KYfDMb
-      - GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
 
 volumes:
   mysql_data:

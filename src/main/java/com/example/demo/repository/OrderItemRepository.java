@@ -12,7 +12,10 @@ import java.util.List;
 public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
     @Query("SELECT oi FROM OrderItem oi WHERE oi.order.orderId = :orderId")
     List<OrderItem> findByOrderId(String orderId);
-    
+
+    @Query("SELECT oi FROM OrderItem oi WHERE oi.order.orderId IN :orderIds")
+    List<OrderItem> findByOrderIdIn(List<String> orderIds);
+
     
     @Query("SELECT oi FROM OrderItem oi WHERE oi.order.userId = :userId AND oi.order.status != com.example.demo.entity.OrderStatus.FAILED")
     List<OrderItem> findSuccessfulOrderItemsByUserId(int userId);

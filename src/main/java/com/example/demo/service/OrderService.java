@@ -129,16 +129,42 @@ public class OrderService {
                 order, current, OrderStatus.CANCELLED, user.getUsername(), "Cancelled: " + reason);
         orderStatusHistoryRepository.save(history);
 
-        // Restore inventory stock levels
+        // Restore inventory stock levels (batched instead of one find+save per item)
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
-        for (OrderItem item : items) {
-            Product product = productRepository.findById(item.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
-            product.setStock(product.getStock() + item.getQuantity());
-            productRepository.save(product);
-        }
+        restoreStock(items, true);
 
         return order;
+    }
+
+    /**
+     * Batch-restores stock for a set of order items in a single findAllById/saveAll
+     * pair instead of one find+save round-trip per item.
+     * @param strict if true, throws when an item's product no longer exists (matches
+     *               the pre-existing cancel/CANCELLED-transition behavior); if false,
+     *               silently skips missing products (matches the return/refund behavior).
+     */
+    private void restoreStock(List<OrderItem> items, boolean strict) {
+        if (items.isEmpty()) {
+            return;
+        }
+        List<Integer> productIds = items.stream().map(OrderItem::getProductId).distinct().toList();
+        Map<Integer, Product> productsMap = new HashMap<>();
+        for (Product p : productRepository.findAllById(productIds)) {
+            productsMap.put(p.getProductId(), p);
+        }
+        List<Product> toSave = new ArrayList<>();
+        for (OrderItem item : items) {
+            Product product = productsMap.get(item.getProductId());
+            if (product == null) {
+                if (strict) {
+                    throw new RuntimeException("Product not found: " + item.getProductId());
+                }
+                continue;
+            }
+            product.setStock(product.getStock() + item.getQuantity());
+            toSave.add(product);
+        }
+        productRepository.saveAll(toSave);
     }
 
     /**
@@ -185,8 +211,27 @@ public class OrderService {
      */
     public List<Map<String, Object>> getAllOrdersDetailed() {
         List<Order> orders = orderRepository.findAll();
+        if (orders.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // Batch fetch order items for every order, and products for every item,
+        // instead of one query per order/item (was O(orders + items) DB round-trips).
+        List<String> orderIds = orders.stream().map(Order::getOrderId).toList();
+        List<OrderItem> allItems = orderItemRepository.findByOrderIdIn(orderIds);
+
+        Map<String, List<OrderItem>> itemsByOrderId = new HashMap<>();
+        for (OrderItem item : allItems) {
+            itemsByOrderId.computeIfAbsent(item.getOrder().getOrderId(), k -> new ArrayList<>()).add(item);
+        }
+
+        List<Integer> productIds = allItems.stream().map(OrderItem::getProductId).distinct().toList();
+        Map<Integer, Product> productsMap = new HashMap<>();
+        for (Product p : productRepository.findAllById(productIds)) {
+            productsMap.put(p.getProductId(), p);
+        }
+
         List<Map<String, Object>> detailedOrders = new ArrayList<>();
-        
         for (Order order : orders) {
             Map<String, Object> map = new HashMap<>();
             map.put("orderId", order.getOrderId());
@@ -197,19 +242,18 @@ public class OrderService {
             map.put("formattedAddress", order.getFormattedAddress());
             map.put("cancellationReason", order.getCancellationReason());
             map.put("returnReason", order.getReturnReason());
-            
-            List<OrderItem> items = orderItemRepository.findByOrderId(order.getOrderId());
+
             List<Map<String, Object>> itemMaps = new ArrayList<>();
-            for (OrderItem item : items) {
+            for (OrderItem item : itemsByOrderId.getOrDefault(order.getOrderId(), List.of())) {
                 Map<String, Object> itemMap = new HashMap<>();
                 itemMap.put("productId", item.getProductId());
                 itemMap.put("quantity", item.getQuantity());
                 itemMap.put("pricePerUnit", item.getPricePerUnit());
                 itemMap.put("totalPrice", item.getTotalPrice());
-                
-                Product p = productRepository.findById(item.getProductId()).orElse(null);
+
+                Product p = productsMap.get(item.getProductId());
                 itemMap.put("productName", p != null ? p.getName() : "Unknown Product");
-                
+
                 itemMaps.add(itemMap);
             }
             map.put("items", itemMaps);
@@ -247,24 +291,12 @@ public class OrderService {
         if (newStatus == OrderStatus.CANCELLED) {
             // Restore stock if transition to cancelled
             List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
-            for (OrderItem item : items) {
-                Product product = productRepository.findById(item.getProductId())
-                        .orElseThrow(() -> new RuntimeException("Product not found"));
-                product.setStock(product.getStock() + item.getQuantity());
-                productRepository.save(product);
-            }
+            restoreStock(items, true);
         } else if (newStatus == OrderStatus.RETURNED || newStatus == OrderStatus.REFUNDED) {
             // Optional: Restore stock when return is successfully processed/refunded
             if (previous == OrderStatus.RETURN_REQUESTED || previous == OrderStatus.RETURN_APPROVED || previous == OrderStatus.ITEM_PICKED_UP) {
                 List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
-                for (OrderItem item : items) {
-                    Product product = productRepository.findById(item.getProductId())
-                            .orElse(null);
-                    if (product != null) {
-                        product.setStock(product.getStock() + item.getQuantity());
-                        productRepository.save(product);
-                    }
-                }
+                restoreStock(items, false);
             }
         }
 
@@ -310,6 +342,12 @@ public class OrderService {
         map.put("returnReason", order.getReturnReason());
         
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getOrderId());
+        List<Integer> productIds = items.stream().map(OrderItem::getProductId).distinct().toList();
+        Map<Integer, Product> productsMap = new HashMap<>();
+        for (Product p : productRepository.findAllById(productIds)) {
+            productsMap.put(p.getProductId(), p);
+        }
+
         List<Map<String, Object>> itemMaps = new ArrayList<>();
         for (OrderItem item : items) {
             Map<String, Object> itemMap = new HashMap<>();
@@ -317,10 +355,10 @@ public class OrderService {
             itemMap.put("quantity", item.getQuantity());
             itemMap.put("pricePerUnit", item.getPricePerUnit());
             itemMap.put("totalPrice", item.getTotalPrice());
-            
-            Product p = productRepository.findById(item.getProductId()).orElse(null);
+
+            Product p = productsMap.get(item.getProductId());
             itemMap.put("productName", p != null ? p.getName() : "Unknown Product");
-            
+
             itemMaps.add(itemMap);
         }
         map.put("items", itemMaps);

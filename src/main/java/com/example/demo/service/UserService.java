@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.dto.RegisterRequest;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
@@ -24,27 +25,21 @@ public class UserService {
         this.passwordEncoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
     }
 
-    public User registerUser(User user) {
-        if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
-            throw new RuntimeException("Username is required");
-        }
-        if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
-            throw new RuntimeException("Email is required");
-        }
-        if (user.getPassword() == null || user.getPassword().isBlank()) {
-            throw new RuntimeException("Password is required");
-        }
+    public User registerUser(RegisterRequest request) {
         // Check if username or email already exists
-        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             throw new RuntimeException("Username is already taken");
         }
-        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("Email is already registered");
         }
-        // Encode password before saving
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        // Build the entity server-side so only username/email/password are ever
+        // attacker-controlled - role, id, and timestamps are never bound from client input.
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.CUSTOMER);
-        // Save the user
         return userRepository.save(user);
     }
 }

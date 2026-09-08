@@ -12,11 +12,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -84,6 +79,9 @@ class AuthenticationAndPerformanceTests {
     private AuthService authService;
 
     @Autowired
+    private com.example.demo.service.RateLimitService rateLimitService;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Value("${jwt.secret}")
@@ -114,6 +112,7 @@ class AuthenticationAndPerformanceTests {
         categoryRepository.deleteAll();
         jwtTokenRepository.deleteAll();
         userRepository.deleteAll();
+        rateLimitService.clearAll();
 
         // Seed Customer
         customerUser = new User();
@@ -328,7 +327,7 @@ class AuthenticationAndPerformanceTests {
     // 9. LOGOUT TEST
     // -------------------------------------------------------------
     @Test
-    @DisplayName("9. Logout clears the authToken cookie and deletes server-side token record")
+    @DisplayName("9. Logout clears the authToken cookie, deletes server-side token record, and immediately invalidates the token")
     void testLogout() throws Exception {
         mockMvc.perform(post("/api/auth/logout")
                         .cookie(new Cookie("authToken", customerToken)))
@@ -339,6 +338,74 @@ class AuthenticationAndPerformanceTests {
         // Verify token deleted from repository
         List<JWTToken> remainingTokens = jwtTokenRepository.findByUserId(customerUser.getUserId());
         assertThat(remainingTokens).isEmpty();
+
+        // A copy of the same (still cryptographically valid, unexpired) token must be
+        // rejected immediately after logout, not just once it naturally expires.
+        mockMvc.perform(get("/api/users/me")
+                        .cookie(new Cookie("authToken", customerToken)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // -------------------------------------------------------------
+    // 13. LOGIN RATE LIMITING TEST
+    // -------------------------------------------------------------
+    @Test
+    @DisplayName("13. Repeated login attempts beyond the limit are throttled with 429")
+    void testLoginRateLimiting() throws Exception {
+        String wrongPayload = """
+            {
+                "username": "john_customer",
+                "password": "wrong_password"
+            }
+            """;
+
+        for (int i = 0; i < 8; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(wrongPayload))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // 9th attempt within the same window should be throttled
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(wrongPayload))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    // -------------------------------------------------------------
+    // 14. REGISTRATION VALIDATION AND MASS-ASSIGNMENT TEST
+    // -------------------------------------------------------------
+    @Test
+    @DisplayName("14. Registration rejects weak passwords/invalid email and ignores a client-supplied role")
+    void testRegistrationValidation() throws Exception {
+        // Password too short
+        mockMvc.perform(post("/api/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"username": "newbie", "email": "newbie@example.com", "password": "short"}
+                            """))
+                .andExpect(status().isBadRequest());
+
+        // Invalid email format
+        mockMvc.perform(post("/api/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"username": "newbie2", "email": "not-an-email", "password": "longenoughpw"}
+                            """))
+                .andExpect(status().isBadRequest());
+
+        // A client-supplied "role" field must be ignored - new user is always CUSTOMER
+        mockMvc.perform(post("/api/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"username": "sneaky", "email": "sneaky@example.com", "password": "longenoughpw", "role": "ADMIN"}
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.username", is("sneaky")));
+
+        User created = userRepository.findByUsername("sneaky").orElseThrow();
+        assertThat(created.getRole()).isEqualTo(Role.CUSTOMER);
     }
 
     // -------------------------------------------------------------
