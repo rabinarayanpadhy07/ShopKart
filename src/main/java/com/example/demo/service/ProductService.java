@@ -118,10 +118,6 @@ public class ProductService {
         return imagesMap;
     }
 
-    public Optional<Product> getProductById(Integer productId) {
-        return productRepository.findById(productId);
-    }
-
     public List<Product> getRelatedProducts(Product product, int limit) {
         if (product.getCategory() == null) {
             return List.of();

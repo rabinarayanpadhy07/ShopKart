@@ -66,7 +66,29 @@ public class DatabaseSeeder implements CommandLineRunner {
             "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=300&q=75",
             "https://images.unsplash.com/photo-1508061253366-f7da158b6d4f?w=300&q=75",
             "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=300&q=75",
-            "https://images.unsplash.com/photo-1548907040-4d42b5212c10?w=300&q=75"
+            "https://images.unsplash.com/photo-1548907040-4d42b5212c10?w=300&q=75",
+            "https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/1082529/pexels-photo-1082529.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/1092644/pexels-photo-1092644.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/1295572/pexels-photo-1295572.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/1598505/pexels-photo-1598505.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/1598507/pexels-photo-1598507.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/2905238/pexels-photo-2905238.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/324028/pexels-photo-324028.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/3685530/pexels-photo-3685530.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/404280/pexels-photo-404280.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/40739/mobile-phone-case-handy-case-mobile-phone-40739.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/4107284/pexels-photo-4107284.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/4112553/pexels-photo-4112553.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/4219861/pexels-photo-4219861.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/4526407/pexels-photo-4526407.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/461428/pexels-photo-461428.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/46710/pexels-photo-46710.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/5698851/pexels-photo-5698851.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/788946/pexels-photo-788946.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/915915/pexels-photo-915915.jpeg?auto=compress&cs=tinysrgb&w=800",
+            "https://images.pexels.com/photos/918327/pexels-photo-918327.jpeg?auto=compress&cs=tinysrgb&w=800"
     );
 
     private static final List<SeedProduct> CATALOG = List.of(
@@ -334,113 +356,6 @@ public class DatabaseSeeder implements CommandLineRunner {
             seedCatalog();
         }
 
-        seedCategoryWithProducts("Shirts", List.of(
-            new SeedProduct("Classic White Oxford Shirt", "Polo Ralph",
-                "Timeless button-down oxford shirt in premium breathable cotton. Perfect for both office and casual weekends.",
-                1899.00, 50, "https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Casual Linen Summer Shirt", "Tommy Hilfiger",
-                "Lightweight and breezy organic linen shirt. Features a relaxed collar and buttoned cuffs.",
-                2499.00, 35, "https://images.pexels.com/photos/5698851/pexels-photo-5698851.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Slim Fit Chambray Denim Shirt", "Levi's",
-                "Authentic indigo-dyed chambray shirt with double chest pockets and durable metal snaps.",
-                1699.00, 40, "https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=800")
-        ));
-
-        seedCategoryWithProducts("Pants", List.of(
-            new SeedProduct("Slim Fit Stretch Chino Pants", "Dockers",
-                "Comfortable stretch cotton chinos. Wrinkle-resistant finish with a clean flat-front design.",
-                2199.00, 45, "https://images.pexels.com/photos/1598507/pexels-photo-1598507.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Classic 501 Original Fit Jeans", "Levi's",
-                "The original straight leg jeans. Heavyweight non-stretch denim with the iconic button fly.",
-                3499.00, 60, "https://images.pexels.com/photos/1082529/pexels-photo-1082529.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Relaxed Lightweight Cargo Pants", "Columbia",
-                "Multi-pocket tactical cargo pants. Quick-dry nylon fabric with UPF 50 sun protection.",
-                2799.00, 30, "https://images.pexels.com/photos/1598505/pexels-photo-1598505.jpeg?auto=compress&cs=tinysrgb&w=800")
-        ));
-
-        seedCategoryWithProducts("Accessories", List.of(
-            new SeedProduct("Minimalist Leather Cardholder Wallet", "Bellroy",
-                "Ultra-slim top grain leather wallet. Holds up to 8 cards with dedicated RFID protection.",
-                1299.00, 80, "https://images.pexels.com/photos/915915/pexels-photo-915915.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Classic Aviator Sunglasses", "Ray-Ban",
-                "G-15 polarized green lenses with gold metal frame. Outstanding glare reduction and UV protection.",
-                5999.00, 25, "https://images.pexels.com/photos/46710/pexels-photo-46710.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Water-Resistant Commuter Backpack", "Herschel",
-                "15-inch laptop sleeve compartment, waterproof zippers, and signature striped fabric liner.",
-                3999.00, 40, "https://images.pexels.com/photos/2905238/pexels-photo-2905238.jpeg?auto=compress&cs=tinysrgb&w=800")
-        ));
-
-        seedCategoryWithProducts("Mobiles", List.of(
-            new SeedProduct("iPhone 15 Pro Max", "Apple",
-                "Titanium design, A17 Pro chip, 48MP main camera, and USB-C port. The peak of mobile technology.",
-                139999.00, 15, "https://images.pexels.com/photos/788946/pexels-photo-788946.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Galaxy S24 Ultra", "Samsung",
-                "Dynamic AMOLED 2X, built-in S Pen, Snapdragon 8 Gen 3, and advanced AI photo editing tools.",
-                124999.00, 20, "https://images.pexels.com/photos/404280/pexels-photo-404280.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Pixel 8 Pro", "Google",
-                "Super Actua display, Tensor G3 processor, and best-in-class low light Magic Eraser photography.",
-                99999.00, 25, "https://images.pexels.com/photos/1092644/pexels-photo-1092644.jpeg?auto=compress&cs=tinysrgb&w=800")
-        ));
-
-        seedCategoryWithProducts("Mobile Accessories", List.of(
-            new SeedProduct("Magnetic Wireless Power Bank", "Anker",
-                "10,000mAh mag-safe compatible portable charger with foldable stand for hands-free viewing.",
-                2999.00, 90, "https://images.pexels.com/photos/4526407/pexels-photo-4526407.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Hybrid Shockproof Phone Case", "Spigen",
-                "Military grade dual-layer protection with air cushion technology. Resists drops and scratches.",
-                899.00, 150, "https://images.pexels.com/photos/40739/mobile-phone-case-handy-case-mobile-phone-40739.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Dual USB-C 40W Fast Charger", "Anker",
-                "Compact wall adapter powered by GaN technology. Intelligently allocates power to dual devices.",
-                1499.00, 120, "https://images.pexels.com/photos/4219861/pexels-photo-4219861.jpeg?auto=compress&cs=tinysrgb&w=800")
-        ));
-
-        seedCategoryWithProducts("Beauty", List.of(
-            new SeedProduct("Hydrating Hyaluronic Acid Serum", "The Ordinary",
-                "Ultra-pure serum combining low, medium, and high molecular weight hyaluronic acid for deep hydration.",
-                699.00, 200, "https://cdn.dummyjson.com/product-images/skin-care/hyaluronic-acid-serum/1.webp"),
-            new SeedProduct("Matte Liquid Lipstick Set", "M.A.C",
-                "Super long-wearing pigment lipstick with a velvety matte finish that lasts up to 12 hours.",
-                2190.00, 85, "https://cdn.dummyjson.com/product-images/beauty/red-lipstick/1.webp"),
-            new SeedProduct("Mineral Sunscreen SPF 50", "La Roche-Posay",
-                "Broad spectrum dry-touch face sunscreen. Fragrance-free and non-comedogenic for sensitive skin.",
-                1850.00, 70, "https://images.pexels.com/photos/3685530/pexels-photo-3685530.jpeg?auto=compress&cs=tinysrgb&w=800")
-        ));
-
-        seedCategoryWithProducts("Appliances", List.of(
-            new SeedProduct("Digital Air Fryer 4L", "Philips",
-                "Rapid Air technology with touchscreen control. Cook with up to 90% less oil for healthy meals.",
-                7999.00, 40, "https://images.pexels.com/photos/4112553/pexels-photo-4112553.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Robotic Vacuum Cleaner", "Xiaomi",
-                "LDS laser navigation with 4000Pa strong suction. Auto-docking, virtual walls, and app control.",
-                19999.00, 18, "https://images.pexels.com/photos/4107284/pexels-photo-4107284.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Programmable Espresso Machine", "DeLonghi",
-                "15-bar professional pressure pump with adjustable manual steam wand for rich, creamy lattes.",
-                14999.00, 15, "https://images.pexels.com/photos/324028/pexels-photo-324028.jpeg?auto=compress&cs=tinysrgb&w=800")
-        ));
-
-        seedCategoryWithProducts("Books", List.of(
-            new SeedProduct("Atomic Habits", "James Clear",
-                "An easy and proven way to build good habits and break bad ones. The million-copy bestseller.",
-                499.00, 300, "https://covers.openlibrary.org/b/isbn/9780735211292-L.jpg"),
-            new SeedProduct("The Psychology of Money", "Morgan Housel",
-                "Timeless lessons on wealth, greed, and happiness. Explore how people make financial choices.",
-                399.00, 250, "https://covers.openlibrary.org/b/isbn/9780857197689-L.jpg"),
-            new SeedProduct("Sapiens: A Brief History of Humankind", "Yuval Noah Harari",
-                "Explore the historic forces that shaped humans from ancient tribes to modern technological societies.",
-                599.00, 180, "https://covers.openlibrary.org/b/isbn/9780062316097-L.jpg")
-        ));
-
-        seedCategoryWithProducts("Food", List.of(
-            new SeedProduct("Organic Roasted Almonds", "Nutty Gritties",
-                "Premium roasted California almonds lightly salted. Gluten-free, rich in fiber and antioxidants.",
-                449.00, 150, "https://images.pexels.com/photos/1295572/pexels-photo-1295572.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Pure Matcha Green Tea Powder", "Organica",
-                "100% organic Japanese stone-ground matcha powder. Perfect for daily energy and weight loss tea.",
-                999.00, 90, "https://images.pexels.com/photos/461428/pexels-photo-461428.jpeg?auto=compress&cs=tinysrgb&w=800"),
-            new SeedProduct("Dark Chocolate Selection Box", "Lindt",
-                "Assorted single-origin dark chocolate truffles with smooth melting cocoa centers.",
-                750.00, 110, "https://images.pexels.com/photos/918327/pexels-photo-918327.jpeg?auto=compress&cs=tinysrgb&w=800")
-        ));
     }
 
     private void createSeedAdmin() {
