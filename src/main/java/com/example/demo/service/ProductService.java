@@ -43,6 +43,13 @@ public class ProductService {
         }
     }
 
+    public Optional<Product> getProductById(Integer productId) {
+        if (productId == null) {
+            return Optional.empty();
+        }
+        return productRepository.findById(productId);
+    }
+
     public Page<Product> getFilteredProducts(
             String search,
             String category,
