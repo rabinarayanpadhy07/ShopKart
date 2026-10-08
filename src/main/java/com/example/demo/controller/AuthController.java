@@ -82,7 +82,10 @@ public class AuthController {
         try {
             User user = (User) request.getAttribute("authenticatedUser");
             String token = getAuthTokenFromCookies(request);
-            if (user != null) {
+            // Logout is a public endpoint (so an expired session can still clear its
+            // cookie), which means the filter may not have attached a user. Always
+            // revoke the presented token so a copied cookie stops working immediately.
+            if (user != null || token != null) {
                 authService.logout(user, token);
             }
             ResponseCookie cookie = ResponseCookie.from("authToken", "")

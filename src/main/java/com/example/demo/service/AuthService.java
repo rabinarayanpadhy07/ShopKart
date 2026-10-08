@@ -255,7 +255,7 @@ public class AuthService {
             if (!responseEntity.getStatusCode().is2xxSuccessful() || responseEntity.getBody() == null) {
                 throw new RuntimeException("Failed to verify Google token");
             }
-            Map<String, Object> body = responseEntity.getPayload();
+            Map<String, Object> body = responseEntity.getBody();
 
             String aud = (String) body.get("aud");
             if (googleClientId == null || googleClientId.trim().isEmpty()) {

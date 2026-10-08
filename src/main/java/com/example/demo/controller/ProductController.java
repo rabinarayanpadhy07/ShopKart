@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +16,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 @RestController
@@ -208,31 +206,5 @@ public class ProductController {
         details.put("totalReviews", product.getTotalReviews());
         details.put("images", images);
         return details;
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getProductById(@PathVariable("id") Integer id) {
-        try {
-            Optional<Product> productOpt = productService.getProductById(id);
-            if (productOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Product not found"));
-            }
-            Product product = productOpt.get();
-            Map<String, Object> productDetails = new HashMap<>();
-            productDetails.put("product_id", product.getProductId());
-            productDetails.put("name", product.getName());
-            productDetails.put("description", product.getDescription());
-            productDetails.put("price", product.getPrice());
-            productDetails.put("stock", product.getStock());
-            productDetails.put("brand", product.getBrand());
-            productDetails.put("category", product.getCategory() != null ? product.getCategory().getCategoryName() : "");
-            productDetails.put("averageRating", product.getAverageRating());
-            productDetails.put("totalReviews", product.getTotalReviews());
-
-            List<String> images = productService.getProductImages(product.getProductId());
-            productDetails.put("images", images);
-
-            return ResponseEntity.ok(productDetails);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Failed to load product"));
-        }
     }
 }
