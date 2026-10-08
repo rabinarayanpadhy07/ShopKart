@@ -113,6 +113,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
                 || requestURI.startsWith("/api/products/suggestions")
                 || "/api/products/categories".equals(requestURI)
                 || "/api/products/filters".equals(requestURI)
+                || requestURI.matches("/api/products/\\d+")
                 || requestURI.startsWith("/api/reviews/product/");
     }
 

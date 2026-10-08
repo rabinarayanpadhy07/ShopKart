@@ -30,8 +30,9 @@ public class AdminProductController {
             Integer stock = (Integer) productRequest.get("stock");
             Integer categoryId = (Integer) productRequest.get("categoryId");
             String imageUrl = (String) productRequest.get("imageUrl");
+            String brand = (String) productRequest.get("brand");
 
-            Product addedProduct = adminProductService.addProductWithImage(name, description, price, stock, categoryId, imageUrl);
+            Product addedProduct = adminProductService.addProductWithImage(name, description, price, stock, categoryId, imageUrl, brand);
             return ResponseEntity.status(HttpStatus.CREATED).body(addedProduct);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
@@ -62,8 +63,9 @@ public class AdminProductController {
             Integer stock = (Integer) productRequest.get("stock");
             Integer categoryId = (Integer) productRequest.get("categoryId");
             String imageUrl = (String) productRequest.get("imageUrl");
+            String brand = (String) productRequest.get("brand");
 
-            Product modified = adminProductService.modifyProduct(productId, name, description, price, stock, categoryId, imageUrl);
+            Product modified = adminProductService.modifyProduct(productId, name, description, price, stock, categoryId, imageUrl, brand);
             return ResponseEntity.status(HttpStatus.OK).body(modified);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));

@@ -19,10 +19,10 @@ import com.example.demo.repository.UserRepository;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+
 import io.jsonwebtoken.security.Keys;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +37,7 @@ public class AuthService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
-    private final Key SIGNING_KEY;
+    private final SecretKey SIGNING_KEY;
 
     // In-memory revocation list so logout takes effect immediately without a
     // DB round-trip on every request. Entries are keyed by raw token and
@@ -108,13 +108,13 @@ public class AuthService {
 
     private String generateNewToken(User user) {
         return Jwts.builder()
-                .setSubject(user.getUsername())
+                .subject(user.getUsername())
                 .claim("userId", user.getUserId())
                 .claim("role", user.getRole().name())
                 .claim("email", user.getEmail())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
-                .signWith(SIGNING_KEY, SignatureAlgorithm.HS512)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
+                .signWith(SIGNING_KEY, Jwts.SIG.HS512)
                 .compact();
     }
 
@@ -172,10 +172,10 @@ public class AuthService {
             return false;
         }
         try {
-            Jwts.parserBuilder()
-                .setSigningKey(SIGNING_KEY)
+            Jwts.parser()
+                .verifyWith(SIGNING_KEY)
                 .build()
-                .parseClaimsJws(token);
+                .parseSignedClaims(token);
             return true;
         } catch (Exception e) {
             logger.debug("Cryptographic token validation failed: {}", e.getMessage());
@@ -184,11 +184,11 @@ public class AuthService {
     }
 
     public Claims parseClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(SIGNING_KEY)
+        return Jwts.parser()
+                .verifyWith(SIGNING_KEY)
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     /**
@@ -255,7 +255,7 @@ public class AuthService {
             if (!responseEntity.getStatusCode().is2xxSuccessful() || responseEntity.getBody() == null) {
                 throw new RuntimeException("Failed to verify Google token");
             }
-            Map<String, Object> body = responseEntity.getBody();
+            Map<String, Object> body = responseEntity.getPayload();
 
             String aud = (String) body.get("aud");
             if (googleClientId == null || googleClientId.trim().isEmpty()) {

@@ -15,6 +15,7 @@ import java.util.List;
 public interface ProductImageRepository extends JpaRepository<ProductImage, Integer> {
     List<ProductImage> findByProduct_ProductId(Integer productId);
     List<ProductImage> findByProduct_ProductIdIn(List<Integer> productIds);
+    List<ProductImage> findByProduct_ProductIdInOrderByImageIdAsc(List<Integer> productIds);
     
     @Modifying
     @Transactional

@@ -4,7 +4,7 @@ import com.example.demo.entity.*;
 import com.example.demo.repository.*;
 import com.example.demo.service.AuthService;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +21,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.security.Key;
+import javax.crypto.SecretKey;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
@@ -222,15 +222,15 @@ class AuthenticationAndPerformanceTests {
     @Test
     @DisplayName("3. Expired JWT on protected endpoint returns 401 Unauthorized")
     void testExpiredJwt() throws Exception {
-        Key key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         Date past = new Date(System.currentTimeMillis() - 100_000);
         String expiredToken = Jwts.builder()
-                .setSubject("john_customer")
+                .subject("john_customer")
                 .claim("userId", customerUser.getUserId())
                 .claim("role", "CUSTOMER")
-                .setIssuedAt(new Date(System.currentTimeMillis() - 200_000))
-                .setExpiration(past)
-                .signWith(key, SignatureAlgorithm.HS512)
+                .issuedAt(new Date(System.currentTimeMillis() - 200_000))
+                .expiration(past)
+                .signWith(key, Jwts.SIG.HS512)
                 .compact();
 
         mockMvc.perform(get("/api/users/me")
@@ -538,5 +538,109 @@ class AuthenticationAndPerformanceTests {
                         .content(cancelPayload))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("CANCELLED")));
+    }
+
+    // -------------------------------------------------------------
+    // PRODUCT DETAIL & PUBLIC REVIEWS
+    // -------------------------------------------------------------
+    @Test
+    @DisplayName("Product detail is public, returns gallery + related items, and 404s for unknown ids")
+    void testProductDetail() throws Exception {
+        Product sibling = new Product();
+        sibling.setName("Bluetooth Earbuds");
+        sibling.setBrand("Sony");
+        sibling.setPrice(BigDecimal.valueOf(4999.00));
+        sibling.setStock(10);
+        sibling.setCategory(testCategory);
+        sibling.setCreatedAt(LocalDateTime.now());
+        sibling.setUpdatedAt(LocalDateTime.now());
+        productRepository.save(sibling);
+
+        mockMvc.perform(get("/api/products/" + testProduct.getProductId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("Wireless Noise-Cancelling Headphones")))
+                .andExpect(jsonPath("$.brand", is("Sony")))
+                .andExpect(jsonPath("$.images[0]", is("https://images.example.com/headphones.jpg")))
+                .andExpect(jsonPath("$.related", hasSize(1)))
+                .andExpect(jsonPath("$.related[0].name", is("Bluetooth Earbuds")));
+
+        mockMvc.perform(get("/api/products/999999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Public review listing never exposes reviewer email or password hash")
+    void testReviewsDoNotLeakUserData() throws Exception {
+        Review review = new Review();
+        review.setUser(customerUser);
+        review.setProduct(testProduct);
+        review.setRating(5);
+        review.setComment("Excellent sound");
+        reviewRepository.save(review);
+
+        mockMvc.perform(get("/api/reviews/product/" + testProduct.getProductId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].username", is("john_customer")))
+                .andExpect(jsonPath("$[0].rating", is(5)))
+                .andExpect(content().string(not(containsString("john@example.com"))))
+                .andExpect(content().string(not(containsString("password"))));
+    }
+
+    // -------------------------------------------------------------
+    // CATALOG SEEDER
+    // -------------------------------------------------------------
+    @Autowired
+    private com.example.demo.config.DatabaseSeeder databaseSeeder;
+
+    @Test
+    @DisplayName("Catalog seeder upgrades legacy demo rows in place, keeps admin rows, and is idempotent")
+    void testCatalogSeeder() throws Exception {
+        // A row from the old placeholder catalog (legacy name + legacy Unsplash image)
+        Product legacy = new Product();
+        legacy.setName("iPhone 15 Pro Max");
+        legacy.setPrice(BigDecimal.valueOf(139999));
+        legacy.setStock(1);
+        legacy.setCategory(testCategory);
+        legacy.setCreatedAt(LocalDateTime.now());
+        legacy.setUpdatedAt(LocalDateTime.now());
+        legacy = productRepository.save(legacy);
+        ProductImage legacyImg = new ProductImage();
+        legacyImg.setProduct(legacy);
+        legacyImg.setImageUrl("https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=300&q=75");
+        productImageRepository.save(legacyImg);
+
+        // An admin-managed row that happens to share a catalog name must not be overwritten
+        Product adminOwned = new Product();
+        adminOwned.setName("Atomic Habits");
+        adminOwned.setPrice(BigDecimal.valueOf(123));
+        adminOwned.setStock(7);
+        adminOwned.setCategory(testCategory);
+        adminOwned.setCreatedAt(LocalDateTime.now());
+        adminOwned.setUpdatedAt(LocalDateTime.now());
+        adminOwned = productRepository.save(adminOwned);
+
+        org.springframework.test.util.ReflectionTestUtils.setField(databaseSeeder, "seedDemoData", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(databaseSeeder, "seedAdmin", false);
+        try {
+            databaseSeeder.run();
+
+            Product upgraded = productRepository.findById(legacy.getProductId()).orElseThrow();
+            assertThat(upgraded.getName()).isEqualTo("Apple iPhone 13 Pro (128 GB) - Sierra Blue");
+            assertThat(upgraded.getBrand()).isEqualTo("Apple");
+            assertThat(productImageRepository.findByProduct_ProductId(upgraded.getProductId()))
+                    .extracting(ProductImage::getImageUrl)
+                    .allMatch(url -> url.startsWith("https://cdn.dummyjson.com/"));
+
+            Product untouched = productRepository.findById(adminOwned.getProductId()).orElseThrow();
+            assertThat(untouched.getPrice()).isEqualByComparingTo("123");
+            assertThat(untouched.getStock()).isEqualTo(7);
+
+            long countAfterFirstRun = productRepository.count();
+            databaseSeeder.run();
+            assertThat(productRepository.count()).isEqualTo(countAfterFirstRun);
+            assertThat(categoryRepository.findByCategoryName("Laptops")).isPresent();
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(databaseSeeder, "seedDemoData", false);
+        }
     }
 }

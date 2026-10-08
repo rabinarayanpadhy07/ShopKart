@@ -108,13 +108,28 @@ public class ProductService {
         if (productIds == null || productIds.isEmpty()) {
             return new java.util.HashMap<>();
         }
-        List<ProductImage> productImages = productImageRepository.findByProduct_ProductIdIn(productIds);
+        // Ordered by insertion so the first image is always the primary/cover photo
+        List<ProductImage> productImages = productImageRepository.findByProduct_ProductIdInOrderByImageIdAsc(productIds);
         java.util.Map<Integer, List<String>> imagesMap = new java.util.HashMap<>();
         for (ProductImage image : productImages) {
             imagesMap.computeIfAbsent(image.getProduct().getProductId(), k -> new ArrayList<>())
                      .add(image.getImageUrl());
         }
         return imagesMap;
+    }
+
+    public Optional<Product> getProductById(Integer productId) {
+        return productRepository.findById(productId);
+    }
+
+    public List<Product> getRelatedProducts(Product product, int limit) {
+        if (product.getCategory() == null) {
+            return List.of();
+        }
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(0, Math.max(1, limit),
+                org.springframework.data.domain.Sort.by("averageRating").descending());
+        return productRepository.findByCategory_CategoryIdAndProductIdNot(
+                product.getCategory().getCategoryId(), product.getProductId(), pageable);
     }
 
     public List<Category> getAllCategories() {

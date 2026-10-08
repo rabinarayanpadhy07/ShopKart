@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +23,7 @@ public class ReviewController {
     @GetMapping("/product/{productId}")
     public ResponseEntity<?> getReviews(@PathVariable("productId") int productId) {
         List<Review> reviews = reviewService.getReviewsForProduct(productId);
-        return ResponseEntity.ok(reviews);
+        return ResponseEntity.ok(reviews.stream().map(ReviewController::toReviewMap).toList());
     }
 
     @PostMapping
@@ -41,7 +42,7 @@ public class ReviewController {
             }
 
             Review saved = reviewService.addReview(user, productId, rating, comment);
-            return ResponseEntity.ok(saved);
+            return ResponseEntity.ok(toReviewMap(saved));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -62,7 +63,7 @@ public class ReviewController {
             }
 
             Review updated = reviewService.updateReview(user, reviewId, rating, comment);
-            return ResponseEntity.ok(updated);
+            return ResponseEntity.ok(toReviewMap(updated));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -80,5 +81,19 @@ public class ReviewController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /**
+     * Public-safe review shape. Never serialize the Review entity directly: its
+     * User relation would expose the reviewer's email and password hash.
+     */
+    private static Map<String, Object> toReviewMap(Review review) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", review.getId());
+        m.put("rating", review.getRating());
+        m.put("comment", review.getComment());
+        m.put("createdAt", review.getCreatedAt());
+        m.put("username", review.getUser() != null ? review.getUser().getUsername() : "Customer");
+        return m;
     }
 }
