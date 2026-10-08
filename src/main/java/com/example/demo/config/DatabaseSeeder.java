@@ -413,9 +413,14 @@ public class DatabaseSeeder implements CommandLineRunner {
 
             Product existing = byName.get(key(sp.name()));
             if (existing == null) {
+                // Only take over a legacy-named row that is still an untouched demo row;
+                // if the admin has customised it, keep it and create this product alongside.
                 for (String legacyName : sp.replaces()) {
-                    existing = byName.get(key(legacyName));
-                    if (existing != null) break;
+                    Product candidate = byName.get(key(legacyName));
+                    if (candidate != null && legacyIds.contains(candidate.getProductId())) {
+                        existing = candidate;
+                        break;
+                    }
                 }
             }
 

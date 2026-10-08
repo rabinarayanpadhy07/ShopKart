@@ -619,6 +619,21 @@ class AuthenticationAndPerformanceTests {
         adminOwned.setUpdatedAt(LocalDateTime.now());
         adminOwned = productRepository.save(adminOwned);
 
+        // A legacy-named row the admin has customised (no legacy image): kept, and its
+        // catalog replacement must still be created as a separate product.
+        Product customisedLegacy = new Product();
+        customisedLegacy.setName("Minimalist Leather Cardholder Wallet");
+        customisedLegacy.setPrice(BigDecimal.valueOf(1299));
+        customisedLegacy.setStock(80);
+        customisedLegacy.setCategory(testCategory);
+        customisedLegacy.setCreatedAt(LocalDateTime.now());
+        customisedLegacy.setUpdatedAt(LocalDateTime.now());
+        customisedLegacy = productRepository.save(customisedLegacy);
+        ProductImage customImg = new ProductImage();
+        customImg.setProduct(customisedLegacy);
+        customImg.setImageUrl("https://shop.example.com/wallet.jpg");
+        productImageRepository.save(customImg);
+
         org.springframework.test.util.ReflectionTestUtils.setField(databaseSeeder, "seedDemoData", true);
         org.springframework.test.util.ReflectionTestUtils.setField(databaseSeeder, "seedAdmin", false);
         try {
@@ -634,6 +649,11 @@ class AuthenticationAndPerformanceTests {
             Product untouched = productRepository.findById(adminOwned.getProductId()).orElseThrow();
             assertThat(untouched.getPrice()).isEqualByComparingTo("123");
             assertThat(untouched.getStock()).isEqualTo(7);
+
+            assertThat(productRepository.findById(customisedLegacy.getProductId()).orElseThrow().getName())
+                    .isEqualTo("Minimalist Leather Cardholder Wallet");
+            assertThat(productRepository.findFirstByNameIgnoreCase("HESHE Women's Genuine Leather Shoulder Bag - Brown"))
+                    .isPresent();
 
             long countAfterFirstRun = productRepository.count();
             databaseSeeder.run();
