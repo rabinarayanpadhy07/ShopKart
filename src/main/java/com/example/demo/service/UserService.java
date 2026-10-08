@@ -26,13 +26,14 @@ public class UserService {
     }
 
     public User registerUser(RegisterRequest request) {
-        // Check if username or email already exists
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new RuntimeException("Username is already taken");
-        }
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("Email is already registered");
-        }
+        // Check both unique fields in one indexed query before hashing the password.
+        userRepository.findByUsernameOrEmail(request.getUsername(), request.getEmail())
+                .ifPresent(existing -> {
+                    if (existing.getUsername().equals(request.getUsername())) {
+                        throw new RuntimeException("Username is already taken");
+                    }
+                    throw new RuntimeException("Email is already registered");
+                });
         // Build the entity server-side so only username/email/password are ever
         // attacker-controlled - role, id, and timestamps are never bound from client input.
         User user = new User();

@@ -14,6 +14,8 @@ import java.util.List;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
+    List<Order> findAllByOrderByCreatedAtDesc();
+
     // Custom query methods can be added here if needed
 	 @Query("SELECT o FROM Order o WHERE MONTH(o.createdAt) = :month AND YEAR(o.createdAt) = :year AND o.status NOT IN (com.example.demo.entity.OrderStatus.PENDING, com.example.demo.entity.OrderStatus.FAILED, com.example.demo.entity.OrderStatus.CANCELLED, com.example.demo.entity.OrderStatus.RETURNED, com.example.demo.entity.OrderStatus.REFUNDED)")
 	    List<Order> findSuccessfulOrdersByMonthAndYear(int month, int year);

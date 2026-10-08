@@ -101,22 +101,9 @@ public class AuthService {
     }
 
     public String generateToken(User user) {
-        long tGenStart = System.nanoTime();
-        String token = generateNewToken(user);
-        long tokenGenMs = (System.nanoTime() - tGenStart) / 1_000_000;
-
-        long tPersistStart = System.nanoTime();
-        try {
-            // Bulk clean up previous tokens for this user in a single query
-            jwtTokenRepository.deleteByUserId(user.getUserId());
-            saveToken(user, token);
-        } catch (Exception e) {
-            logger.warn("Could not persist or prune token record: {}", e.getMessage());
-        }
-        long tokenPersistMs = (System.nanoTime() - tPersistStart) / 1_000_000;
-
-        logger.debug("Token timing: tokenGenMs={}, tokenPersistMs={}", tokenGenMs, tokenPersistMs);
-        return token;
+        // Authentication validates JWT claims in memory, so persisting a token here
+        // only adds two blocking database writes to every successful sign-in.
+        return generateNewToken(user);
     }
 
     private String generateNewToken(User user) {
