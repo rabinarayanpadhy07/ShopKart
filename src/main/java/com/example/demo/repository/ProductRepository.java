@@ -11,10 +11,15 @@ import com.example.demo.entity.Product;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Integer> {
     List<Product> findByCategory_CategoryId(Integer categoryId);
+
+    Optional<Product> findFirstByNameIgnoreCase(String name);
+
+    List<Product> findByCategory_CategoryIdAndProductIdNot(Integer categoryId, Integer productId, Pageable pageable);
     
     @Query("SELECT p.category.categoryName FROM Product p WHERE p.productId = :productId")
     String findCategoryNameByProductId(int productId);

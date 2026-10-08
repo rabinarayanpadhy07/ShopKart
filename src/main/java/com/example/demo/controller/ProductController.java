@@ -85,21 +85,7 @@ public class ProductController {
             // Build product details maps
             List<Map<String, Object>> productList = new ArrayList<>();
             for (Product product : products) {
-                Map<String, Object> productDetails = new HashMap<>();
-                productDetails.put("product_id", product.getProductId());
-                productDetails.put("name", product.getName());
-                productDetails.put("description", product.getDescription());
-                productDetails.put("price", product.getPrice());
-                productDetails.put("stock", product.getStock());
-                productDetails.put("brand", product.getBrand());
-                productDetails.put("category", product.getCategory() != null ? product.getCategory().getCategoryName() : "");
-                productDetails.put("averageRating", product.getAverageRating());
-                productDetails.put("totalReviews", product.getTotalReviews());
-
-                List<String> images = imagesMap.getOrDefault(product.getProductId(), List.of());
-                productDetails.put("images", images);
-
-                productList.add(productDetails);
+                productList.add(toProductMap(product, imagesMap.getOrDefault(product.getProductId(), List.of())));
             }
 
             response.put("products", productList);
@@ -117,6 +103,41 @@ public class ProductController {
         } catch (Exception e) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "An unexpected error occurred while fetching products"));
+        }
+    }
+
+    @GetMapping("/{productId:\\d+}")
+    public ResponseEntity<Map<String, Object>> getProduct(@PathVariable("productId") Integer productId,
+                                                          HttpServletRequest request) {
+        try {
+            Product product = productService.getProductById(productId).orElse(null);
+            if (product == null) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Product not found"));
+            }
+
+            List<Product> related = productService.getRelatedProducts(product, 8);
+
+            // One batched image query for the product and all of its related items
+            List<Integer> ids = new ArrayList<>();
+            ids.add(product.getProductId());
+            related.forEach(p -> ids.add(p.getProductId()));
+            Map<Integer, List<String>> imagesMap = productService.getProductImagesForProducts(ids);
+
+            Map<String, Object> response = toProductMap(product, imagesMap.getOrDefault(product.getProductId(), List.of()));
+            List<Map<String, Object>> relatedList = new ArrayList<>();
+            for (Product p : related) {
+                relatedList.add(toProductMap(p, imagesMap.getOrDefault(p.getProductId(), List.of())));
+            }
+            response.put("related", relatedList);
+            User authenticatedUser = (User) request.getAttribute("authenticatedUser");
+            response.put("user", authenticatedUser != null
+                    ? Map.of("name", authenticatedUser.getUsername(), "role", authenticatedUser.getRole().name())
+                    : Map.of("name", "Guest", "role", "GUEST"));
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to load product"));
         }
     }
 
@@ -170,5 +191,20 @@ public class ProductController {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to load categories"));
         }
+    }
+
+    private Map<String, Object> toProductMap(Product product, List<String> images) {
+        Map<String, Object> details = new HashMap<>();
+        details.put("product_id", product.getProductId());
+        details.put("name", product.getName());
+        details.put("description", product.getDescription());
+        details.put("price", product.getPrice());
+        details.put("stock", product.getStock());
+        details.put("brand", product.getBrand());
+        details.put("category", product.getCategory() != null ? product.getCategory().getCategoryName() : "");
+        details.put("averageRating", product.getAverageRating());
+        details.put("totalReviews", product.getTotalReviews());
+        details.put("images", images);
+        return details;
     }
 }

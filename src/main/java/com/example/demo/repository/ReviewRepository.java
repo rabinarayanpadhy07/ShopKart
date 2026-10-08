@@ -9,7 +9,7 @@ import java.util.Optional;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Integer> {
-    @Query("SELECT r FROM Review r WHERE r.product.productId = :productId ORDER BY r.createdAt DESC")
+    @Query("SELECT r FROM Review r JOIN FETCH r.user WHERE r.product.productId = :productId ORDER BY r.createdAt DESC")
     List<Review> findByProductId(int productId);
 
     @Query("SELECT r FROM Review r WHERE r.user.userId = :userId AND r.product.productId = :productId")
